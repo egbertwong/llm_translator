@@ -1,0 +1,16 @@
+import type { Token } from "./DiContainer";
+import type { TranslationService } from "@domain/ports/TranslationService";
+import type { LanguageDetector } from "@domain/ports/LanguageDetector";
+import type { SettingsRepository } from "@domain/ports/SettingsRepository";
+import type { TranslateText } from "@domain/usecases/TranslateText";
+import type { LoadSettings } from "@domain/usecases/LoadSettings";
+import type { SaveSettings } from "@domain/usecases/SaveSettings";
+import type { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
+
+export const TranslationServiceToken = Symbol("TranslationService") as Token<TranslationService>;
+export const LanguageDetectorToken = Symbol("LanguageDetector") as Token<LanguageDetector>;
+export const SettingsRepositoryToken = Symbol("SettingsRepository") as Token<SettingsRepository>;
+export const TranslateTextToken = Symbol("TranslateText") as Token<TranslateText>;
+export const LoadSettingsToken = Symbol("LoadSettings") as Token<LoadSettings>;
+export const SaveSettingsToken = Symbol("SaveSettings") as Token<SaveSettings>;
+export const TranslatorViewModelToken = Symbol("TranslatorViewModel") as Token<TranslatorViewModel>;
