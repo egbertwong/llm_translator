@@ -140,7 +140,7 @@ export class TranslatorViewModel {
   }
 
   private applyTheme(theme: "light" | "dark") {
-    document.documentElement.dataset.theme = theme;
+    document.documentElement.classList.toggle("dark", theme === "dark");
   }
 
   private applyThemeMode(themeMode: "system" | "light" | "dark") {

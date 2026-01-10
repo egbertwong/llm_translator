@@ -3,6 +3,23 @@ import { container } from "@app/di/container";
 import { TranslatorViewModelToken } from "@app/di/tokens";
 import type { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
 import { TitleBar } from "@ui/components/TitleBar";
+import { Button } from "@ui/components/ui/button";
+import { Input } from "@ui/components/ui/input";
+import { Textarea } from "@ui/components/ui/textarea";
+import {
+  History,
+  Languages,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings
+} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@ui/components/ui/select";
 
 const useViewModel = (vm: TranslatorViewModel) => {
   const [state, setState] = useState(vm.getState());
@@ -10,242 +27,309 @@ const useViewModel = (vm: TranslatorViewModel) => {
   return state;
 };
 
+type ViewKey = "translate" | "history" | "settings";
+
+const tabs: { key: ViewKey; label: string }[] = [
+  { key: "translate", label: "Translate" },
+  { key: "history", label: "History" },
+  { key: "settings", label: "Settings" }
+];
+
 export const TranslatorView = () => {
   const viewModel = useMemo(
     () => container.resolve(TranslatorViewModelToken),
     []
   );
   const state = useViewModel(viewModel);
+  const [activeView, setActiveView] = useState<ViewKey>("translate");
   const [navCollapsed, setNavCollapsed] = useState(false);
 
   useEffect(() => {
     viewModel.init().catch(() => {});
   }, [viewModel]);
 
+  const handleCopyOutput = () => {
+    if (!state.output) return;
+    void navigator.clipboard?.writeText(state.output);
+  };
+
   return (
-    <div className="app-shell">
+    <div className="flex h-full flex-col overflow-hidden bg-background">
       <TitleBar />
-      <div className="workspace">
-        <aside className={`sidebar${navCollapsed ? " is-collapsed" : ""}`}>
-          <button
+
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside
+          className={`flex h-full flex-col gap-2 border-r bg-card p-3 ${
+            navCollapsed ? "w-16" : "w-56"
+          }`}
+        >
+          <Button
             type="button"
-            className="sidebar__toggle"
+            variant="ghost"
+            className="h-9 w-full justify-start px-3"
             onClick={() => setNavCollapsed((value) => !value)}
             aria-label="Toggle navigation"
           >
-            <svg className="sidebar__icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M4 7h16M4 12h16M4 17h16"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
-          <button type="button" className="sidebar__item sidebar__item--active">
-            <svg className="sidebar__icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M7 7h10v10H7z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-              />
-            </svg>
-            <span className="sidebar__label">Translate</span>
-          </button>
-          <button type="button" className="sidebar__item">
-            <svg className="sidebar__icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M6 7h12M6 12h8M6 17h10"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="sidebar__label">History</span>
-          </button>
-          <div className="sidebar__spacer" />
-          <button
-            type="button"
-            className="sidebar__item"
-            onClick={() => viewModel.setSettingsOpen(true)}
-          >
-            <svg className="sidebar__icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-              />
-              <path
-                d="M4 12h2m12 0h2M12 4v2m0 12v2M6.2 6.2l1.4 1.4m8.8 8.8l1.4 1.4m0-11.6l-1.4 1.4M7.6 17.6l-1.4 1.4"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="sidebar__label">Settings</span>
-          </button>
+            {navCollapsed ? (
+              <PanelLeftOpen className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+            ) : (
+              <PanelLeftClose className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+            )}
+          </Button>
+          <div className="h-px w-full bg-border" />
+          {tabs.map((tab) => (
+            <Button
+              key={tab.key}
+              type="button"
+              variant="ghost"
+              className={`h-10 w-full justify-start gap-3 px-3 ${
+                activeView === tab.key ? "bg-accent text-foreground" : ""
+              }`}
+              onClick={() => setActiveView(tab.key)}
+            >
+              {tab.key === "translate" ? (
+                <Languages className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+              ) : null}
+              {tab.key === "history" ? (
+                <History className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+              ) : null}
+              {tab.key === "settings" ? (
+                <Settings className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+              ) : null}
+              {!navCollapsed ? <span className="text-sm">{tab.label}</span> : null}
+            </Button>
+          ))}
         </aside>
 
-        <div className="main-area">
-          <div className="lang-row">
-            <select
-              value={state.source}
-              onChange={(event) => viewModel.setSource(event.target.value as typeof state.source)}
-            >
-              {viewModel.getLanguages().map((lang) => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="swap-button"
-              onClick={() => viewModel.swapLanguages()}
-              aria-label="Swap languages"
-            >
-              <svg className="swap-icon" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M7 7h10l-3-3m3 13H7l3 3"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-            <select
-              value={state.target}
-              onChange={(event) => viewModel.setTarget(event.target.value as typeof state.target)}
-            >
-              {viewModel
-                .getLanguages()
-                .filter((lang) => lang.code !== "auto")
-                .map((lang) => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.label}
-                  </option>
-                ))}
-            </select>
-          </div>
+        {activeView === "translate" ? (
+          <main className="flex min-h-0 flex-1 flex-col overflow-auto">
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
+              <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-end">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-medium text-muted-foreground">From</label>
+                  <Select
+                    value={state.source}
+                    onValueChange={(value) =>
+                      viewModel.setSource(value as typeof state.source)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {viewModel.getLanguages().map((lang) => (
+                        <SelectItem key={lang.code} value={lang.code}>
+                          {lang.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          <main className="content-grid">
-            <section className="panel">
-              <div className="textarea-group">
-                <label>Input</label>
-                <textarea
-                  placeholder="Paste or type text to translate..."
-                  value={state.input}
-                  onChange={(event) => viewModel.setInput(event.target.value)}
-                  rows={12}
-                />
-              </div>
-              <div className="panel-actions">
-                <button
-                  type="button"
-                  className="primary-button"
-                  disabled={state.loading}
-                  onClick={() => viewModel.translate()}
-                >
-                  {state.loading ? "Translating..." : "Translate"}
-                </button>
-                {state.detectedSource && state.source === "auto" ? (
-                  <p className="hint">Detected: {state.detectedSource.toUpperCase()}</p>
-                ) : null}
-                {state.error ? <p className="error">{state.error}</p> : null}
-              </div>
-            </section>
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground"
+                    onClick={() => viewModel.swapLanguages()}
+                    aria-label="Swap languages"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M7 7h10l-3-3m3 13H7l3 3"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </Button>
+                </div>
 
-            <section className="panel output-panel">
-              <label>Output</label>
-              <textarea
-                className="output-textarea"
-                value={state.output}
-                readOnly
-                placeholder="Translation will appear here."
-                rows={12}
-              />
-            </section>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-medium text-muted-foreground">To</label>
+                  <Select
+                    value={state.target}
+                    onValueChange={(value) =>
+                      viewModel.setTarget(value as typeof state.target)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Target" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {viewModel
+                        .getLanguages()
+                        .filter((lang) => lang.code !== "auto")
+                        .map((lang) => (
+                          <SelectItem key={lang.code} value={lang.code}>
+                            {lang.label}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </section>
+
+              <section className="grid min-h-[420px] gap-4 lg:grid-cols-2">
+                <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Input</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => viewModel.setInput("")}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  <Textarea
+                    placeholder="Paste or type text to translate..."
+                    value={state.input}
+                    onChange={(event) => viewModel.setInput(event.target.value)}
+                    rows={12}
+                    className="min-h-[260px]"
+                  />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="default"
+                      disabled={state.loading}
+                      onClick={() => viewModel.translate()}
+                    >
+                      {state.loading ? "Translating..." : "Translate"}
+                    </Button>
+                    {state.detectedSource && state.source === "auto" ? (
+                      <span className="text-xs text-muted-foreground">
+                        Detected: {state.detectedSource.toUpperCase()}
+                      </span>
+                    ) : null}
+                    {state.error ? (
+                      <span className="text-xs text-destructive">{state.error}</span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Output</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={handleCopyOutput}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={state.output}
+                    readOnly
+                    placeholder="Translation will appear here."
+                    rows={12}
+                    className="min-h-[260px]"
+                  />
+                </div>
+              </section>
+            </div>
           </main>
-        </div>
-      </div>
+        ) : null}
 
-      {state.settingsOpen ? (
-        <aside className="settings-panel">
-          <div className="settings-head">
-            <h2>Settings</h2>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => viewModel.setSettingsOpen(false)}
-            >
-              Close
-            </button>
-          </div>
-          <div className="settings-grid">
-            <label>
-              Theme
-              <select
-                value={state.themeMode}
-                onChange={(event) =>
-                  viewModel.setThemeMode(event.target.value as typeof state.themeMode)
-                }
-              >
-                <option value="system">Follow system</option>
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-              </select>
-            </label>
-            <label>
-              Base URL
-              <input
-                type="text"
-                value={state.settings.baseUrl}
-                onChange={(event) => viewModel.updateSettings({ baseUrl: event.target.value })}
-              />
-            </label>
-            <label>
-              Model
-              <input
-                type="text"
-                value={state.settings.model}
-                onChange={(event) => viewModel.updateSettings({ model: event.target.value })}
-              />
-            </label>
-            <label>
-              API Key
-              <input
-                type="password"
-                value={state.settings.apiKey}
-                onChange={(event) => viewModel.updateSettings({ apiKey: event.target.value })}
-              />
-            </label>
-            <label>
-              Temperature
-              <input
-                type="number"
-                min={0}
-                max={1}
-                step={0.1}
-                value={state.settings.temperature}
-                onChange={(event) =>
-                  viewModel.updateSettings({ temperature: Number(event.target.value) })
-                }
-              />
-            </label>
-          </div>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() => viewModel.persistSettings()}
-          >
-            Save Settings
-          </button>
-        </aside>
-      ) : null}
+        {activeView === "history" ? (
+          <main className="flex min-h-0 flex-1 flex-col overflow-auto">
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
+              <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                <span className="text-xs font-medium text-muted-foreground">History</span>
+                <p className="text-sm text-muted-foreground">No history yet.</p>
+              </section>
+            </div>
+          </main>
+        ) : null}
+
+        {activeView === "settings" ? (
+          <main className="flex min-h-0 flex-1 flex-col overflow-auto">
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <section className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
+                  <span className="text-xs font-medium text-muted-foreground">Appearance</span>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-muted-foreground">Theme</label>
+                    <Select
+                      value={state.themeMode}
+                      onValueChange={(value) =>
+                        viewModel.setThemeMode(value as typeof state.themeMode)
+                      }
+                    >
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="Theme" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="system">Follow system</SelectItem>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="dark">Dark</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </section>
+
+                <section className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
+                  <span className="text-xs font-medium text-muted-foreground">LLM Settings</span>
+                  <div className="grid gap-3">
+                    <label className="text-xs text-muted-foreground">Base URL</label>
+                    <Input
+                      value={state.settings.baseUrl}
+                      onChange={(event) =>
+                        viewModel.updateSettings({ baseUrl: event.target.value })
+                      }
+                    />
+                    <label className="text-xs text-muted-foreground">Model</label>
+                    <Input
+                      value={state.settings.model}
+                      onChange={(event) =>
+                        viewModel.updateSettings({ model: event.target.value })
+                      }
+                    />
+                    <label className="text-xs text-muted-foreground">API Key</label>
+                    <Input
+                      type="password"
+                      value={state.settings.apiKey}
+                      onChange={(event) =>
+                        viewModel.updateSettings({ apiKey: event.target.value })
+                      }
+                    />
+                    <label className="text-xs text-muted-foreground">Temperature</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      value={state.settings.temperature}
+                      onChange={(event) =>
+                        viewModel.updateSettings({
+                          temperature: Number(event.target.value)
+                        })
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="default"
+                      className="w-fit"
+                      onClick={() => viewModel.persistSettings()}
+                    >
+                      Save Settings
+                    </Button>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </main>
+        ) : null}
+      </div>
     </div>
   );
 };
