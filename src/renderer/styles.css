@@ -80,6 +80,14 @@
     scrollbar-color: hsl(var(--border)) transparent;
   }
 
+  .scroll-area-viewport {
+    scrollbar-width: none;
+  }
+
+  .scroll-area-viewport::-webkit-scrollbar {
+    display: none;
+  }
+
   ::-webkit-scrollbar {
     width: 12px;
     height: 12px;
@@ -103,27 +111,28 @@
   }
 
   .scrollbar-rounded::-webkit-scrollbar {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     -webkit-appearance: none;
     appearance: none;
   }
 
   .scrollbar-rounded::-webkit-scrollbar-track {
     background: transparent;
+    border-radius: 999px;
   }
 
   .scrollbar-rounded::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
     border-radius: 999px;
-    border: 2px solid transparent;
-    background-clip: content-box;
+    border: 3px solid transparent;
+    background-clip: padding-box;
   }
 
   .scrollbar-rounded::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground));
-    border: 2px solid transparent;
-    background-clip: content-box;
+    border: 3px solid transparent;
+    background-clip: padding-box;
   }
 }
 
