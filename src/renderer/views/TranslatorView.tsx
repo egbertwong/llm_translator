@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { container } from "@app/di/container";
 import { TranslatorViewModelToken } from "@app/di/tokens";
 import type { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
@@ -43,10 +43,18 @@ export const TranslatorView = () => {
   const state = useViewModel(viewModel);
   const [activeView, setActiveView] = useState<ViewKey>("translate");
   const [navCollapsed, setNavCollapsed] = useState(false);
+  const lastErrorRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     viewModel.init().catch(() => {});
   }, [viewModel]);
+
+  useEffect(() => {
+    if (state.error && state.error !== lastErrorRef.current) {
+      lastErrorRef.current = state.error;
+      window.alert(state.error);
+    }
+  }, [state.error]);
 
   const handleCopyOutput = () => {
     if (!state.output) return;
@@ -103,8 +111,8 @@ export const TranslatorView = () => {
           </aside>
 
           {activeView === "translate" ? (
-            <main className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
+          <main className="flex min-h-0 flex-1 flex-col overflow-auto">
+            <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 px-6 py-4">
               <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-end">
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-medium text-muted-foreground">From</label>
@@ -174,48 +182,47 @@ export const TranslatorView = () => {
                 </div>
               </section>
 
-              <section className="grid min-h-[420px] gap-4 lg:grid-cols-2">
-                <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+              <section className="grid flex-1 gap-4 lg:grid-cols-2">
+                <div className="flex flex-1 flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground">Input</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => viewModel.setInput("")}
-                    >
-                      Clear
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        className="h-7 px-3 text-xs"
+                        disabled={state.loading}
+                        onClick={() => viewModel.translate()}
+                      >
+                        {state.loading ? "Translating..." : "Translate"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-3 text-xs"
+                        onClick={() => viewModel.setInput("")}
+                      >
+                        Clear
+                      </Button>
+                    </div>
                   </div>
                   <Textarea
                     placeholder="Paste or type text to translate..."
                     value={state.input}
                     onChange={(event) => viewModel.setInput(event.target.value)}
-                    rows={12}
-                    className="min-h-[260px]"
+                    rows={10}
+                    className="min-h-[220px] flex-1"
                   />
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Button
-                      type="button"
-                      variant="default"
-                      disabled={state.loading}
-                      onClick={() => viewModel.translate()}
-                    >
-                      {state.loading ? "Translating..." : "Translate"}
-                    </Button>
-                    {state.detectedSource && state.source === "auto" ? (
-                      <span className="text-xs text-muted-foreground">
-                        Detected: {state.detectedSource.toUpperCase()}
-                      </span>
-                    ) : null}
-                    {state.error ? (
-                      <span className="text-xs text-destructive">{state.error}</span>
-                    ) : null}
-                  </div>
+                  {state.detectedSource && state.source === "auto" ? (
+                    <span className="text-xs text-muted-foreground">
+                      Detected: {state.detectedSource.toUpperCase()}
+                    </span>
+                  ) : null}
                 </div>
 
-                <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                <div className="flex flex-1 flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground">Output</span>
                     <Button
@@ -232,13 +239,13 @@ export const TranslatorView = () => {
                     value={state.output}
                     readOnly
                     placeholder="Translation will appear here."
-                    rows={12}
-                    className="min-h-[260px]"
+                    rows={10}
+                    className="min-h-[220px] flex-1"
                   />
                 </div>
               </section>
             </div>
-            </main>
+          </main>
           ) : null}
 
           {activeView === "history" ? (
