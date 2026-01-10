@@ -23,8 +23,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         <ScrollAreaViewport asChild className="h-full w-full">
           <textarea
             className={cn(
-              "flex h-full min-h-[80px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-              className
+              "flex h-full min-h-[80px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             )}
             ref={ref}
             {...props}
