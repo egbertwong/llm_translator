@@ -57,12 +57,13 @@ export const TranslatorView = () => {
     <div className="flex h-full flex-col overflow-hidden bg-background">
       <TitleBar />
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside
-          className={`flex h-full flex-col gap-2 border-r bg-card p-3 ${
-            navCollapsed ? "w-16" : "w-56"
-          }`}
-        >
+      <div className="flex min-h-0 flex-1 justify-center overflow-hidden">
+        <div className="flex min-h-0 w-full max-w-[1200px] overflow-hidden">
+          <aside
+            className={`flex h-full flex-col gap-2 border-r bg-card p-3 ${
+              navCollapsed ? "w-16" : "w-56"
+            }`}
+          >
           <Button
             type="button"
             variant="ghost"
@@ -99,11 +100,11 @@ export const TranslatorView = () => {
               {!navCollapsed ? <span className="text-sm">{tab.label}</span> : null}
             </Button>
           ))}
-        </aside>
+          </aside>
 
-        {activeView === "translate" ? (
-          <main className="flex min-h-0 flex-1 flex-col overflow-auto">
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
+          {activeView === "translate" ? (
+            <main className="flex min-h-0 flex-1 flex-col overflow-auto">
+              <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
               <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-end">
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-medium text-muted-foreground">From</label>
@@ -237,25 +238,25 @@ export const TranslatorView = () => {
                 </div>
               </section>
             </div>
-          </main>
-        ) : null}
+            </main>
+          ) : null}
 
-        {activeView === "history" ? (
-          <main className="flex min-h-0 flex-1 flex-col overflow-auto">
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
+          {activeView === "history" ? (
+            <main className="flex min-h-0 flex-1 flex-col overflow-auto">
+              <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
               <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
                 <span className="text-xs font-medium text-muted-foreground">History</span>
                 <p className="text-sm text-muted-foreground">No history yet.</p>
               </section>
             </div>
-          </main>
-        ) : null}
+            </main>
+          ) : null}
 
-        {activeView === "settings" ? (
-          <main className="flex min-h-0 flex-1 flex-col overflow-auto">
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <section className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
+          {activeView === "settings" ? (
+            <main className="flex min-h-0 flex-1 flex-col overflow-auto">
+              <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
+              <section className="mx-auto flex w-full max-w-2xl flex-col gap-6 rounded-xl border bg-card p-4 shadow-sm">
+                <div className="flex flex-col gap-3">
                   <span className="text-xs font-medium text-muted-foreground">Appearance</span>
                   <div className="flex flex-col gap-2">
                     <label className="text-xs text-muted-foreground">Theme</label>
@@ -275,9 +276,11 @@ export const TranslatorView = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                </section>
+                </div>
 
-                <section className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
+                <div className="h-px w-full bg-border" />
+
+                <div className="flex flex-col gap-3">
                   <span className="text-xs font-medium text-muted-foreground">LLM Settings</span>
                   <div className="grid gap-3">
                     <label className="text-xs text-muted-foreground">Base URL</label>
@@ -324,11 +327,12 @@ export const TranslatorView = () => {
                       Save Settings
                     </Button>
                   </div>
-                </section>
-              </div>
+                </div>
+              </section>
             </div>
-          </main>
-        ) : null}
+            </main>
+          ) : null}
+        </div>
       </div>
     </div>
   );
