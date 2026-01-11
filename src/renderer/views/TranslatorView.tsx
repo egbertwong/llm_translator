@@ -120,28 +120,48 @@ export const TranslatorView = () => {
             </div>
           </div>
           <div className="h-px w-full bg-border" />
-          {tabs.map((tab) => (
-            <Button
-              key={tab.key}
-              type="button"
-              variant="ghost"
-              className={`h-10 w-full justify-start gap-3 px-3 ${
-                activeView === tab.key ? "bg-accent text-foreground" : ""
-              }`}
-              onClick={() => setActiveView(tab.key)}
-            >
-              {tab.key === "translate" ? (
-                <Languages className="h-4 w-4 shrink-0" strokeWidth={1.6} />
-              ) : null}
-              {tab.key === "history" ? (
-                <History className="h-4 w-4 shrink-0" strokeWidth={1.6} />
-              ) : null}
-              {tab.key === "settings" ? (
+          {tabs
+            .filter((tab) => tab.key !== "settings")
+            .map((tab) => (
+              <Button
+                key={tab.key}
+                type="button"
+                variant="ghost"
+                className={`h-10 w-full justify-start gap-3 px-3 ${
+                  activeView === tab.key ? "bg-accent text-foreground" : ""
+                }`}
+                onClick={() => setActiveView(tab.key)}
+              >
+                {tab.key === "translate" ? (
+                  <Languages className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+                ) : null}
+                {tab.key === "history" ? (
+                  <History className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+                ) : null}
+                {!navCollapsed ? (
+                  <span className="text-sm">{tab.label}</span>
+                ) : null}
+              </Button>
+            ))}
+          <div className="flex-1" />
+          {tabs
+            .filter((tab) => tab.key === "settings")
+            .map((tab) => (
+              <Button
+                key={tab.key}
+                type="button"
+                variant="ghost"
+                className={`h-10 w-full justify-start gap-3 px-3 ${
+                  activeView === tab.key ? "bg-accent text-foreground" : ""
+                }`}
+                onClick={() => setActiveView(tab.key)}
+              >
                 <Settings className="h-4 w-4 shrink-0" strokeWidth={1.6} />
-              ) : null}
-              {!navCollapsed ? <span className="text-sm">{tab.label}</span> : null}
-            </Button>
-          ))}
+                {!navCollapsed ? (
+                  <span className="text-sm">{tab.label}</span>
+                ) : null}
+              </Button>
+            ))}
           </aside>
 
           {activeView === "translate" ? (
@@ -296,80 +316,111 @@ export const TranslatorView = () => {
             <main className="flex min-h-0 flex-1 flex-col overflow-auto">
               <div className="drag-region h-12 w-full shrink-0" />
               <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 pb-4">
-              <section className="mx-auto flex w-full max-w-2xl flex-col gap-6 rounded-xl border bg-card p-4 shadow-sm">
-                <div className="flex flex-col gap-3">
-                  <span className="text-xs font-medium text-muted-foreground">Appearance</span>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-muted-foreground">Theme</label>
-                    <Select
-                      value={state.themeMode}
-                      onValueChange={(value) =>
-                        viewModel.setThemeMode(value as typeof state.themeMode)
-                      }
-                    >
-                      <SelectTrigger className="w-[220px]">
-                        <SelectValue placeholder="Theme" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="system">Follow system</SelectItem>
-                        <SelectItem value="light">Light</SelectItem>
-                        <SelectItem value="dark">Dark</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="h-px w-full bg-border" />
-
-                <div className="flex flex-col gap-3">
-                  <span className="text-xs font-medium text-muted-foreground">LLM Settings</span>
-                  <div className="grid gap-3">
-                    <label className="text-xs text-muted-foreground">Base URL</label>
-                    <Input
-                      value={state.settings.baseUrl}
-                      onChange={(event) =>
-                        viewModel.updateSettings({ baseUrl: event.target.value })
-                      }
-                    />
-                    <label className="text-xs text-muted-foreground">Model</label>
-                    <Input
-                      value={state.settings.model}
-                      onChange={(event) =>
-                        viewModel.updateSettings({ model: event.target.value })
-                      }
-                    />
-                    <label className="text-xs text-muted-foreground">API Key</label>
-                    <Input
-                      type="password"
-                      value={state.settings.apiKey}
-                      onChange={(event) =>
-                        viewModel.updateSettings({ apiKey: event.target.value })
-                      }
-                    />
-                    <label className="text-xs text-muted-foreground">Temperature</label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={1}
-                      step={0.1}
-                      value={state.settings.temperature}
-                      onChange={(event) =>
-                        viewModel.updateSettings({
-                          temperature: Number(event.target.value)
-                        })
-                      }
-                    />
-                    <Button
+                <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+                  <div className="flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-sm">
+                    <span className="px-2 text-xs font-medium text-muted-foreground">
+                      Settings
+                    </span>
+                    <button
                       type="button"
-                      variant="default"
-                      className="w-fit"
-                      onClick={() => viewModel.persistSettings()}
+                      className="h-9 w-full rounded-md bg-accent px-3 text-left text-sm text-foreground"
                     >
-                      Save Settings
-                    </Button>
+                      Appearance
+                    </button>
+                    <button
+                      type="button"
+                      className="h-9 w-full rounded-md px-3 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                    >
+                      LLM
+                    </button>
                   </div>
-                </div>
-              </section>
+                  <div className="flex min-w-0 flex-col gap-4">
+                    <section className="flex flex-col gap-6 rounded-xl border bg-card p-4 shadow-sm">
+                      <div className="flex flex-col gap-3">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Appearance
+                        </span>
+                        <div className="flex flex-col gap-2">
+                          <label className="text-xs text-muted-foreground">
+                            Theme
+                          </label>
+                          <Select
+                            value={state.themeMode}
+                            onValueChange={(value) =>
+                              viewModel.setThemeMode(value as typeof state.themeMode)
+                            }
+                          >
+                            <SelectTrigger className="w-[220px]">
+                              <SelectValue placeholder="Theme" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="system">Follow system</SelectItem>
+                              <SelectItem value="light">Light</SelectItem>
+                              <SelectItem value="dark">Dark</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="h-px w-full bg-border" />
+
+                      <div className="flex flex-col gap-3">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          LLM Settings
+                        </span>
+                        <div className="grid gap-3">
+                          <label className="text-xs text-muted-foreground">
+                            Base URL
+                          </label>
+                          <Input
+                            value={state.settings.baseUrl}
+                            onChange={(event) =>
+                              viewModel.updateSettings({ baseUrl: event.target.value })
+                            }
+                          />
+                          <label className="text-xs text-muted-foreground">Model</label>
+                          <Input
+                            value={state.settings.model}
+                            onChange={(event) =>
+                              viewModel.updateSettings({ model: event.target.value })
+                            }
+                          />
+                          <label className="text-xs text-muted-foreground">API Key</label>
+                          <Input
+                            type="password"
+                            value={state.settings.apiKey}
+                            onChange={(event) =>
+                              viewModel.updateSettings({ apiKey: event.target.value })
+                            }
+                          />
+                          <label className="text-xs text-muted-foreground">
+                            Temperature
+                          </label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={1}
+                            step={0.1}
+                            value={state.settings.temperature}
+                            onChange={(event) =>
+                              viewModel.updateSettings({
+                                temperature: Number(event.target.value)
+                              })
+                            }
+                          />
+                          <Button
+                            type="button"
+                            variant="default"
+                            className="w-fit"
+                            onClick={() => viewModel.persistSettings()}
+                          >
+                            Save Settings
+                          </Button>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </section>
             </div>
             </main>
           ) : null}
