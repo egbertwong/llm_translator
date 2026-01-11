@@ -10,6 +10,14 @@ type OpenAIChatResponse = {
   }>;
 };
 
+type OpenAIChatStreamResponse = {
+  choices?: Array<{
+    delta?: {
+      content?: string;
+    };
+  }>;
+};
+
 export class LLMTranslationService implements TranslationService {
   constructor(private settingsRepository: SettingsRepository) {}
 
@@ -35,6 +43,7 @@ export class LLMTranslationService implements TranslationService {
       body: JSON.stringify({
         model: settings.model,
         temperature: settings.temperature,
+        stream: settings.stream,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user }
@@ -47,8 +56,53 @@ export class LLMTranslationService implements TranslationService {
       throw new Error(`LLM request failed (${response.status}): ${detail}`);
     }
 
+    const contentType = response.headers.get("content-type") ?? "";
+    if (settings.stream && response.body && contentType.includes("text/event-stream")) {
+      const text = await this.readStream(response.body, request.onDelta);
+      return { text };
+    }
+
     const payload = (await response.json()) as OpenAIChatResponse;
     const text = payload.choices?.[0]?.message?.content?.trim() ?? "";
     return { text };
+  }
+
+  private async readStream(
+    body: ReadableStream<Uint8Array>,
+    onDelta?: (chunk: string) => void
+  ): Promise<string> {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let text = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let lineBreakIndex = buffer.indexOf("\n");
+      while (lineBreakIndex >= 0) {
+        const line = buffer.slice(0, lineBreakIndex).trim();
+        buffer = buffer.slice(lineBreakIndex + 1);
+        if (line.startsWith("data:")) {
+          const data = line.slice(5).trim();
+          if (data === "[DONE]") return text;
+          try {
+            const payload = JSON.parse(data) as OpenAIChatStreamResponse;
+            const delta = payload.choices?.[0]?.delta?.content ?? "";
+            if (delta) {
+              text += delta;
+              onDelta?.(delta);
+            }
+          } catch {
+            // Ignore malformed chunks.
+          }
+        }
+        lineBreakIndex = buffer.indexOf("\n");
+      }
+    }
+
+    return text;
   }
 }

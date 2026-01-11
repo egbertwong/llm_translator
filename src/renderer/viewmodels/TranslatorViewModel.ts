@@ -25,7 +25,8 @@ const defaultSettings: LlmSettings = {
   baseUrl: "https://api.openai.com",
   apiKey: "",
   model: "gpt-4o-mini",
-  temperature: 0.2
+  temperature: 0.2,
+  stream: true
 };
 
 const THEME_MODE_KEY = "llm-translator.theme-mode";
@@ -101,12 +102,16 @@ export class TranslatorViewModel {
 
   async translate() {
     if (!this.state.input.trim()) return;
-    this.setState({ loading: true, error: undefined });
+    this.setState({ loading: true, error: undefined, output: "" });
     try {
       const result = await this.translateText.execute({
         text: this.state.input,
         source: this.state.source,
-        target: this.state.target
+        target: this.state.target,
+        onDelta: (chunk) => {
+          if (!this.state.settings.stream) return;
+          this.setState({ output: `${this.state.output}${chunk}` });
+        }
       });
       this.setState({
         output: result.text,

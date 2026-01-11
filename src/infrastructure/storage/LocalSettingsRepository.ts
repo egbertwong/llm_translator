@@ -7,7 +7,8 @@ const defaultSettings: LlmSettings = {
   baseUrl: "https://api.openai.com",
   apiKey: "",
   model: "gpt-4o-mini",
-  temperature: 0.2
+  temperature: 0.2,
+  stream: true
 };
 
 export class LocalSettingsRepository implements SettingsRepository {

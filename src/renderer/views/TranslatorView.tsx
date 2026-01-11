@@ -408,6 +408,25 @@ export const TranslatorView = () => {
                               })
                             }
                           />
+                          <label className="text-xs text-muted-foreground">
+                            Streaming
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4"
+                              checked={state.settings.stream}
+                              onChange={(event) =>
+                                viewModel.updateSettings({
+                                  stream: event.target.checked
+                                })
+                              }
+                              aria-label="Enable streaming output"
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              Enable streaming output
+                            </span>
+                          </div>
                           <Button
                             type="button"
                             variant="default"
