@@ -2,6 +2,7 @@ import type { TextareaHTMLAttributes, UIEvent } from "react";
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { container } from "@app/di/container";
 import { TranslatorViewModelToken } from "@app/di/tokens";
+import type { LlmSettings } from "@domain/models/Settings";
 import type { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
 import appIcon from "@ui/assets/app-icon.svg";
 import { Button } from "@ui/components/ui/button";
@@ -73,6 +74,9 @@ const renderHighlightedTemplate = (value: string) => {
 
   return nodes;
 };
+
+const serializeSettings = (settings: LlmSettings) =>
+  JSON.stringify(settings);
 
 const PromptTextarea = forwardRef<
   HTMLTextAreaElement,
@@ -147,6 +151,12 @@ export const TranslatorView = () => {
   const lastErrorRef = useRef<string | undefined>(undefined);
   const systemPromptRef = useRef<HTMLTextAreaElement | null>(null);
   const userPromptRef = useRef<HTMLTextAreaElement | null>(null);
+  const savedSettingsRef = useRef<string | null>(null);
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const [testStatus, setTestStatus] = useState<
+    "idle" | "testing" | "ok" | "fail"
+  >("idle");
+  const [testMessage, setTestMessage] = useState("");
   const detectedSourceLabel = useMemo(() => {
     if (!state.detectedSource) return undefined;
     const match = viewModel
@@ -166,9 +176,71 @@ export const TranslatorView = () => {
     }
   }, [state.error]);
 
+  useEffect(() => {
+    if (!state.settingsReady) return;
+    const serialized = serializeSettings(state.settings);
+    if (savedSettingsRef.current === null) {
+      savedSettingsRef.current = serialized;
+      setSettingsDirty(false);
+      return;
+    }
+    setSettingsDirty(serialized !== savedSettingsRef.current);
+  }, [state.settings, state.settingsReady]);
+
+  useEffect(() => {
+    if (!state.settingsReady) return;
+    setTestStatus("idle");
+    setTestMessage("");
+  }, [state.settings.baseUrl, state.settings.apiKey, state.settingsReady]);
+
   const handleCopyOutput = () => {
     if (!state.output) return;
     void navigator.clipboard?.writeText(state.output);
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      await viewModel.persistSettings();
+      savedSettingsRef.current = serializeSettings(state.settings);
+      setSettingsDirty(false);
+    } catch (error) {
+      window.alert(
+        error instanceof Error ? error.message : "Failed to save settings."
+      );
+    }
+  };
+
+  const handleTestBaseUrl = async () => {
+    const baseUrl = state.settings.baseUrl.trim();
+    if (!baseUrl) {
+      setTestStatus("fail");
+      setTestMessage("Base URL required");
+      return;
+    }
+    setTestStatus("testing");
+    setTestMessage("Testing...");
+    const trimmedBase = baseUrl.replace(/\/+$/, "");
+    const endpoint = trimmedBase.endsWith("/v1")
+      ? `${trimmedBase}/models`
+      : `${trimmedBase}/v1/models`;
+    try {
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: state.settings.apiKey
+          ? { Authorization: `Bearer ${state.settings.apiKey}` }
+          : undefined
+      });
+      if (!response.ok) {
+        setTestStatus("fail");
+        setTestMessage(`Failed (${response.status})`);
+        return;
+      }
+      setTestStatus("ok");
+      setTestMessage("OK");
+    } catch {
+      setTestStatus("fail");
+      setTestMessage("Failed");
+    }
   };
 
   const insertPromptVariable = (
@@ -198,6 +270,19 @@ export const TranslatorView = () => {
       el.focus();
       el.setSelectionRange(pos, pos);
     });
+  };
+
+  const requestViewChange = async (nextView: ViewKey) => {
+    if (nextView === activeView) return;
+    if (activeView === "settings" && settingsDirty) {
+      const shouldSave = window.confirm(
+        "You have unsaved settings. Save before leaving?"
+      );
+      if (shouldSave) {
+        await handleSaveSettings();
+      }
+    }
+    setActiveView(nextView);
   };
 
   return (
@@ -262,7 +347,7 @@ export const TranslatorView = () => {
                 className={`h-10 w-full justify-start gap-3 px-3 ${
                   activeView === tab.key ? "bg-accent text-foreground" : ""
                 }`}
-                onClick={() => setActiveView(tab.key)}
+                onClick={() => void requestViewChange(tab.key)}
               >
                 {tab.key === "translate" ? (
                   <Languages className="h-4 w-4 shrink-0" strokeWidth={1.6} />
@@ -286,7 +371,7 @@ export const TranslatorView = () => {
                 className={`h-10 w-full justify-start gap-3 px-3 ${
                   activeView === tab.key ? "bg-accent text-foreground" : ""
                 }`}
-                onClick={() => setActiveView(tab.key)}
+                onClick={() => void requestViewChange(tab.key)}
               >
                 <Settings className="h-4 w-4 shrink-0" strokeWidth={1.6} />
                 {!navCollapsed ? (
@@ -504,12 +589,17 @@ export const TranslatorView = () => {
                           <label className="text-xs text-muted-foreground">
                             Base URL
                           </label>
-                          <Input
-                            value={state.settings.baseUrl}
-                            onChange={(event) =>
-                              viewModel.updateSettings({ baseUrl: event.target.value })
-                            }
-                          />
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <Input
+                              value={state.settings.baseUrl}
+                              onChange={(event) =>
+                                viewModel.updateSettings({
+                                  baseUrl: event.target.value
+                                })
+                              }
+                              className="flex-1"
+                            />
+                          </div>
                           <label className="text-xs text-muted-foreground">Model</label>
                           <Input
                             value={state.settings.model}
@@ -559,14 +649,34 @@ export const TranslatorView = () => {
                               Enable streaming output
                             </span>
                           </div>
-                          <Button
-                            type="button"
-                            variant="default"
-                            className="w-fit"
-                            onClick={() => viewModel.persistSettings()}
-                          >
-                            Save Settings
-                          </Button>
+                          <div className="flex flex-col gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              Connection test
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-3 text-xs"
+                                onClick={() => void handleTestBaseUrl()}
+                                disabled={testStatus === "testing"}
+                              >
+                                {testStatus === "testing" ? "Testing..." : "Test"}
+                              </Button>
+                              <span
+                                className={`text-xs ${
+                                  testStatus === "ok"
+                                    ? "text-emerald-600 dark:text-emerald-300"
+                                    : testStatus === "fail"
+                                    ? "text-rose-600 dark:text-rose-300"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                {testMessage || "Not tested"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -736,6 +846,16 @@ export const TranslatorView = () => {
                         </div>
                       </div>
                     </section>
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="default"
+                        onClick={() => void handleSaveSettings()}
+                        disabled={!settingsDirty}
+                      >
+                        Save Settings
+                      </Button>
+                    </div>
                   </div>
                 </section>
             </div>

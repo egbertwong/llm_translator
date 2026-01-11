@@ -14,6 +14,7 @@ export type TranslatorState = {
   loading: boolean;
   error?: string;
   settings: LlmSettings;
+  settingsReady: boolean;
   settingsOpen: boolean;
   themeMode: "system" | "light" | "dark";
   theme: "light" | "dark";
@@ -49,6 +50,7 @@ export class TranslatorViewModel {
     output: "",
     loading: false,
     settings: { ...defaultSettings },
+    settingsReady: false,
     settingsOpen: false,
     themeMode: "system",
     theme: "dark"
@@ -79,7 +81,7 @@ export class TranslatorViewModel {
       this.loadSettings.execute(),
       this.loadThemeMode()
     ]);
-    this.setState({ settings, themeMode });
+    this.setState({ settings, themeMode, settingsReady: true });
     this.applyThemeMode(themeMode);
   }
 
