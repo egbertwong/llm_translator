@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { container } from "@app/di/container";
 import { TranslatorViewModelToken } from "@app/di/tokens";
 import type { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
-import { TitleBar } from "@ui/components/TitleBar";
+import appIcon from "@ui/assets/app-icon.svg";
 import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
 import { Textarea } from "@ui/components/ui/textarea";
@@ -63,8 +63,6 @@ export const TranslatorView = () => {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
-      <TitleBar />
-
       <div className="flex min-h-0 flex-1 justify-center overflow-hidden">
         <div className="flex min-h-0 w-full max-w-[1200px] overflow-hidden">
           <aside
@@ -72,19 +70,48 @@ export const TranslatorView = () => {
               navCollapsed ? "w-16" : "w-56"
             }`}
           >
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-9 w-full justify-start px-3"
-            onClick={() => setNavCollapsed((value) => !value)}
-            aria-label="Toggle navigation"
-          >
-            {navCollapsed ? (
-              <PanelLeftOpen className="h-4 w-4 shrink-0" strokeWidth={1.6} />
-            ) : (
-              <PanelLeftClose className="h-4 w-4 shrink-0" strokeWidth={1.6} />
-            )}
-          </Button>
+          <div className="drag-region flex h-10 items-center px-2">
+            <div className="no-drag flex w-full items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="group relative flex h-6 w-6 items-center justify-center">
+                  <img
+                    src={appIcon}
+                    alt="App icon"
+                    className={`h-6 w-6 ${navCollapsed ? "group-hover:opacity-0" : ""}`}
+                  />
+                  {navCollapsed ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute inset-0 h-6 w-6 rounded-md opacity-0 group-hover:opacity-100"
+                      onClick={() => setNavCollapsed(false)}
+                      aria-label="Expand sidebar"
+                    >
+                      <PanelLeftOpen className="h-4 w-4" strokeWidth={1.6} />
+                    </Button>
+                  ) : null}
+                </div>
+                {!navCollapsed ? (
+                  <span className="text-xs font-semibold tracking-wide">
+                    LLM Desk
+                  </span>
+                ) : null}
+              </div>
+              {!navCollapsed ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded-md"
+                  onClick={() => setNavCollapsed(true)}
+                  aria-label="Collapse sidebar"
+                >
+                  <PanelLeftClose className="h-4 w-4" strokeWidth={1.6} />
+                </Button>
+              ) : null}
+            </div>
+          </div>
           <div className="h-px w-full bg-border" />
           {tabs.map((tab) => (
             <Button
@@ -112,7 +139,8 @@ export const TranslatorView = () => {
 
           {activeView === "translate" ? (
           <main className="flex min-h-0 flex-1 flex-col overflow-auto">
-            <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 px-6 py-4">
+            <div className="drag-region h-12 w-full shrink-0" />
+            <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 px-6 pb-4">
               <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-end">
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-medium text-muted-foreground">From</label>
@@ -250,7 +278,8 @@ export const TranslatorView = () => {
 
           {activeView === "history" ? (
             <main className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
+              <div className="drag-region h-12 w-full shrink-0" />
+              <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 pb-4">
               <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
                 <span className="text-xs font-medium text-muted-foreground">History</span>
                 <p className="text-sm text-muted-foreground">No history yet.</p>
@@ -261,7 +290,8 @@ export const TranslatorView = () => {
 
           {activeView === "settings" ? (
             <main className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 py-4">
+              <div className="drag-region h-12 w-full shrink-0" />
+              <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 pb-4">
               <section className="mx-auto flex w-full max-w-2xl flex-col gap-6 rounded-xl border bg-card p-4 shadow-sm">
                 <div className="flex flex-col gap-3">
                   <span className="text-xs font-medium text-muted-foreground">Appearance</span>
