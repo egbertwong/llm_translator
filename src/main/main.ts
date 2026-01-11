@@ -2,12 +2,17 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 
 const createWindow = () => {
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, "icons", "icon.png")
+    : path.join(__dirname, "../../resources/icons/icon.png");
+
   const win = new BrowserWindow({
     width: 1200,
     height: 760,
     minWidth: 980,
     minHeight: 640,
     backgroundColor: "#0b0c10",
+    icon: iconPath,
     frame: false,
     titleBarStyle: "hidden",
     titleBarOverlay: {
@@ -35,6 +40,12 @@ const createWindow = () => {
 };
 
 app.whenReady().then(() => {
+  if (process.platform === "darwin") {
+    const iconPath = app.isPackaged
+      ? path.join(process.resourcesPath, "icons", "icon.png")
+      : path.join(__dirname, "../../resources/icons/icon.png");
+    app.dock.setIcon(iconPath).catch(() => {});
+  }
   createWindow();
 
   app.on("activate", () => {
