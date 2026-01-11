@@ -70,10 +70,10 @@ export const TranslatorView = () => {
               navCollapsed ? "w-16" : "w-56"
             }`}
           >
-          <div className="drag-region flex h-10 items-center px-2">
+          <div className="drag-region flex h-10 items-center">
             <div className="no-drag flex w-full items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="group relative flex h-6 w-6 items-center justify-center">
+                <div className="group relative flex h-10 w-10 items-center justify-center">
                   <img
                     src={appIcon}
                     alt="App icon"
@@ -84,7 +84,7 @@ export const TranslatorView = () => {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute inset-0 h-6 w-6 rounded-md opacity-0 group-hover:opacity-100"
+                      className="absolute inset-0 h-10 w-10 rounded-md opacity-0 group-hover:opacity-100"
                       onClick={() => setNavCollapsed(false)}
                       aria-label="Expand sidebar"
                     >
@@ -103,7 +103,7 @@ export const TranslatorView = () => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 rounded-md"
+                  className="h-10 w-10 rounded-md"
                   onClick={() => setNavCollapsed(true)}
                   aria-label="Collapse sidebar"
                 >
