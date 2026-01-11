@@ -44,6 +44,13 @@ export const TranslatorView = () => {
   const [activeView, setActiveView] = useState<ViewKey>("translate");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const lastErrorRef = useRef<string | undefined>(undefined);
+  const detectedSourceLabel = useMemo(() => {
+    if (!state.detectedSource) return undefined;
+    const match = viewModel
+      .getLanguages()
+      .find((lang) => lang.code === state.detectedSource);
+    return match?.label ?? state.detectedSource.toUpperCase();
+  }, [state.detectedSource, viewModel]);
 
   useEffect(() => {
     viewModel.init().catch(() => {});
@@ -156,7 +163,9 @@ export const TranslatorView = () => {
                     <SelectContent>
                       {viewModel.getLanguages().map((lang) => (
                         <SelectItem key={lang.code} value={lang.code}>
-                          {lang.label}
+                          {lang.code === "auto" && detectedSourceLabel
+                            ? `${lang.label} (${detectedSourceLabel})`
+                            : lang.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -243,11 +252,6 @@ export const TranslatorView = () => {
                     rows={10}
                     className="min-h-[220px] flex-1"
                   />
-                  {state.detectedSource && state.source === "auto" ? (
-                    <span className="text-xs text-muted-foreground">
-                      Detected: {state.detectedSource.toUpperCase()}
-                    </span>
-                  ) : null}
                 </div>
 
                 <div className="flex flex-1 flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
