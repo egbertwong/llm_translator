@@ -63,8 +63,8 @@ export const TranslatorView = () => {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
-      <div className="flex min-h-0 flex-1 justify-center overflow-hidden">
-        <div className="flex min-h-0 w-full max-w-[1200px] overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 w-full overflow-hidden">
           <aside
             className={`flex h-full flex-col gap-2 border-r bg-card p-3 ${
               navCollapsed ? "w-16" : "w-56"
