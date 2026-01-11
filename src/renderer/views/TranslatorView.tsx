@@ -285,6 +285,15 @@ export const TranslatorView = () => {
     setActiveView(nextView);
   };
 
+  const renderScrollableMain = (content: React.ReactNode) => (
+    <main className="relative flex min-h-0 flex-1 overflow-hidden">
+      <div className="drag-region absolute left-0 right-0 top-0 h-12" />
+      <div className="absolute inset-x-0 bottom-0 top-12 overflow-auto">
+        <div className="flex min-h-full flex-col">{content}</div>
+      </div>
+    </main>
+  );
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -382,8 +391,7 @@ export const TranslatorView = () => {
           </aside>
 
           {activeView === "translate" ? (
-          <main className="flex min-h-0 flex-1 flex-col overflow-auto">
-            <div className="drag-region h-12 w-full shrink-0" />
+          renderScrollableMain(
             <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 px-6 pb-4">
               <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-end">
                 <div className="flex flex-col gap-2">
@@ -514,24 +522,22 @@ export const TranslatorView = () => {
                 </div>
               </section>
             </div>
-          </main>
+          )
           ) : null}
 
           {activeView === "history" ? (
-            <main className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <div className="drag-region h-12 w-full shrink-0" />
+            renderScrollableMain(
               <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 pb-4">
               <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
                 <span className="text-xs font-medium text-muted-foreground">History</span>
                 <p className="text-sm text-muted-foreground">No history yet.</p>
               </section>
             </div>
-            </main>
+            )
           ) : null}
 
           {activeView === "settings" ? (
-            <main className="flex min-h-0 flex-1 flex-col overflow-auto">
-              <div className="drag-region h-12 w-full shrink-0" />
+            renderScrollableMain(
               <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 pb-4">
                 <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
                   <div className="flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-sm">
@@ -859,7 +865,7 @@ export const TranslatorView = () => {
                   </div>
                 </section>
             </div>
-            </main>
+            )
           ) : null}
         </div>
       </div>
