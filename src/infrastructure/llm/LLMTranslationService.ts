@@ -26,13 +26,19 @@ export class LLMTranslationService implements TranslationService {
     const base = settings.baseUrl.replace(/\/$/, "");
     const url = base.endsWith("/v1") ? `${base}/chat/completions` : `${base}/v1/chat/completions`;
 
-    const system = [
-      "You are a precise translation engine.",
-      "Only return the translated text without extra commentary.",
-      "Preserve formatting and line breaks."
-    ].join(" ");
-
-    const user = `Translate from ${request.source} to ${request.target}:\n${request.text}`;
+    const variables = {
+      source: request.source,
+      target: request.target,
+      text: request.text
+    };
+    const systemTemplate = settings.prompts.translate.system;
+    const userTemplate = settings.prompts.translate.user;
+    const system = this.renderTemplate(systemTemplate, variables).trim();
+    const user = this.renderTemplate(userTemplate, variables).trim() || request.text;
+    const messages = [
+      ...(system ? [{ role: "system" as const, content: system }] : []),
+      { role: "user" as const, content: user }
+    ];
 
     const response = await fetch(url, {
       method: "POST",
@@ -44,10 +50,7 @@ export class LLMTranslationService implements TranslationService {
         model: settings.model,
         temperature: settings.temperature,
         stream: settings.stream,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user }
-        ]
+        messages
       })
     });
 
@@ -104,5 +107,13 @@ export class LLMTranslationService implements TranslationService {
     }
 
     return text;
+  }
+
+  private renderTemplate(template: string, variables: Record<string, string>): string {
+    return template.replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key: string) => {
+      return Object.prototype.hasOwnProperty.call(variables, key)
+        ? variables[key]
+        : "";
+    });
   }
 }

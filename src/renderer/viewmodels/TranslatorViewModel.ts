@@ -26,7 +26,14 @@ const defaultSettings: LlmSettings = {
   apiKey: "",
   model: "gpt-4o-mini",
   temperature: 0.2,
-  stream: true
+  stream: true,
+  prompts: {
+    translate: {
+      system:
+        "You are a precise translation engine. Only return the translated text without extra commentary. Preserve formatting and line breaks.",
+      user: "Translate from {{source}} to {{target}}:\n{{text}}"
+    }
+  }
 };
 
 const THEME_MODE_KEY = "llm-translator.theme-mode";

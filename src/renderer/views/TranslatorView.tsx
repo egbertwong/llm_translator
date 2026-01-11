@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { TextareaHTMLAttributes, UIEvent } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { container } from "@app/di/container";
 import { TranslatorViewModelToken } from "@app/di/tokens";
 import type { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
@@ -20,6 +21,106 @@ import {
   SelectTrigger,
   SelectValue
 } from "@ui/components/ui/select";
+
+const VARIABLE_STYLE: Record<string, string> = {
+  source:
+    "bg-emerald-100 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-200",
+  target:
+    "bg-sky-100 text-sky-900 dark:bg-sky-500/20 dark:text-sky-200",
+  text:
+    "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200"
+};
+
+const renderHighlightedTemplate = (value: string) => {
+  const nodes: Array<JSX.Element> = [];
+  const regex = /{{\s*[a-zA-Z0-9_]+\s*}}/g;
+  let lastIndex = 0;
+  let match = regex.exec(value);
+  let key = 0;
+
+  while (match) {
+    const token = match[0];
+    const index = match.index;
+    if (index > lastIndex) {
+      nodes.push(
+        <span key={`text-${key++}`} className="text-foreground">
+          {value.slice(lastIndex, index)}
+        </span>
+      );
+    }
+    const name = token.slice(2, -2).trim();
+    const style = VARIABLE_STYLE[name] ?? "bg-muted text-foreground";
+    nodes.push(
+      <span key={`token-${key++}`} className={`rounded-sm ${style}`}>
+        {token}
+      </span>
+    );
+    lastIndex = index + token.length;
+    match = regex.exec(value);
+  }
+
+  if (lastIndex < value.length) {
+    nodes.push(
+      <span key={`text-${key++}`} className="text-foreground">
+        {value.slice(lastIndex)}
+      </span>
+    );
+  }
+
+  if (nodes.length === 0) {
+    return <span className="text-foreground">{value}</span>;
+  }
+
+  return nodes;
+};
+
+const PromptTextarea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(({ className, value = "", onChange, onScroll, ...props }, ref) => {
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const [isComposing, setIsComposing] = useState(false);
+  const handleScroll = (event: UIEvent<HTMLTextAreaElement>) => {
+    onScroll?.(event);
+    if (overlayRef.current) {
+      overlayRef.current.scrollTop = event.currentTarget.scrollTop;
+      overlayRef.current.scrollLeft = event.currentTarget.scrollLeft;
+    }
+  };
+
+  return (
+    <div
+      className={`relative h-full w-full rounded-md border border-input bg-background shadow-sm focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
+        className ?? ""
+      }`}
+    >
+      <div
+        ref={overlayRef}
+        className={`pointer-events-none absolute inset-0 overflow-auto px-3 py-2 text-sm leading-6 ${
+          isComposing ? "opacity-0" : "opacity-100"
+        }`}
+        aria-hidden="true"
+      >
+        <div className="whitespace-pre-wrap">
+          {renderHighlightedTemplate(String(value))}
+        </div>
+      </div>
+      <textarea
+        ref={ref}
+        value={value}
+        onChange={onChange}
+        onScroll={handleScroll}
+        onCompositionStart={() => setIsComposing(true)}
+        onCompositionEnd={() => setIsComposing(false)}
+        className={`relative h-full w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+          isComposing ? "text-foreground" : "text-transparent caret-foreground"
+        }`}
+        {...props}
+      />
+    </div>
+  );
+});
+PromptTextarea.displayName = "PromptTextarea";
 
 const useViewModel = (vm: TranslatorViewModel) => {
   const [state, setState] = useState(vm.getState());
@@ -44,6 +145,8 @@ export const TranslatorView = () => {
   const [activeView, setActiveView] = useState<ViewKey>("translate");
   const [navCollapsed, setNavCollapsed] = useState(false);
   const lastErrorRef = useRef<string | undefined>(undefined);
+  const systemPromptRef = useRef<HTMLTextAreaElement | null>(null);
+  const userPromptRef = useRef<HTMLTextAreaElement | null>(null);
   const detectedSourceLabel = useMemo(() => {
     if (!state.detectedSource) return undefined;
     const match = viewModel
@@ -66,6 +169,35 @@ export const TranslatorView = () => {
   const handleCopyOutput = () => {
     if (!state.output) return;
     void navigator.clipboard?.writeText(state.output);
+  };
+
+  const insertPromptVariable = (
+    field: "system" | "user",
+    variable: string
+  ) => {
+    const current = state.settings.prompts.translate[field];
+    const ref = field === "system" ? systemPromptRef : userPromptRef;
+    const textarea = ref.current;
+    const start = textarea?.selectionStart ?? current.length;
+    const end = textarea?.selectionEnd ?? current.length;
+    const next =
+      current.slice(0, start) + variable + current.slice(end);
+    viewModel.updateSettings({
+      prompts: {
+        ...state.settings.prompts,
+        translate: {
+          ...state.settings.prompts.translate,
+          [field]: next
+        }
+      }
+    });
+    requestAnimationFrame(() => {
+      const el = ref.current;
+      if (!el) return;
+      const pos = start + variable.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
   };
 
   return (
@@ -435,6 +567,172 @@ export const TranslatorView = () => {
                           >
                             Save Settings
                           </Button>
+                        </div>
+                      </div>
+
+                      <div className="h-px w-full bg-border" />
+
+                      <div className="flex flex-col gap-3">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Prompt Templates
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Function: Translate
+                        </span>
+                        <div className="grid gap-3">
+                          <label className="text-xs text-muted-foreground">
+                            System prompt
+                          </label>
+                          <PromptTextarea
+                            value={state.settings.prompts.translate.system}
+                            onChange={(event) =>
+                              viewModel.updateSettings({
+                                prompts: {
+                                  ...state.settings.prompts,
+                                  translate: {
+                                    ...state.settings.prompts.translate,
+                                    system: event.target.value
+                                  }
+                                }
+                              })
+                            }
+                            ref={systemPromptRef}
+                            rows={4}
+                            className="min-h-[120px]"
+                          />
+                          <div className="flex flex-col gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              Insert variable
+                            </span>
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs bg-emerald-100 text-emerald-900 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:hover:bg-emerald-500/30"
+                              onClick={() =>
+                                insertPromptVariable("system", "{{source}}")
+                              }
+                            >
+                              {"{{source}}"}
+                            </Button>
+                                <span className="text-xs text-muted-foreground">
+                                  Source language code
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs bg-sky-100 text-sky-900 hover:bg-sky-200 dark:bg-sky-500/20 dark:text-sky-200 dark:hover:bg-sky-500/30"
+                              onClick={() =>
+                                insertPromptVariable("system", "{{target}}")
+                              }
+                            >
+                              {"{{target}}"}
+                            </Button>
+                                <span className="text-xs text-muted-foreground">
+                                  Target language code
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30"
+                              onClick={() =>
+                                insertPromptVariable("system", "{{text}}")
+                              }
+                            >
+                              {"{{text}}"}
+                            </Button>
+                                <span className="text-xs text-muted-foreground">
+                                  Input text
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <label className="text-xs text-muted-foreground">
+                            User prompt
+                          </label>
+                          <PromptTextarea
+                            value={state.settings.prompts.translate.user}
+                            onChange={(event) =>
+                              viewModel.updateSettings({
+                                prompts: {
+                                  ...state.settings.prompts,
+                                  translate: {
+                                    ...state.settings.prompts.translate,
+                                    user: event.target.value
+                                  }
+                                }
+                              })
+                            }
+                            ref={userPromptRef}
+                            rows={5}
+                            className="min-h-[140px]"
+                          />
+                          <div className="flex flex-col gap-2">
+                            <span className="text-xs text-muted-foreground">
+                              Insert variable
+                            </span>
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs bg-emerald-100 text-emerald-900 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:hover:bg-emerald-500/30"
+                              onClick={() =>
+                                insertPromptVariable("user", "{{source}}")
+                              }
+                            >
+                              {"{{source}}"}
+                            </Button>
+                                <span className="text-xs text-muted-foreground">
+                                  Source language code
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs bg-sky-100 text-sky-900 hover:bg-sky-200 dark:bg-sky-500/20 dark:text-sky-200 dark:hover:bg-sky-500/30"
+                              onClick={() =>
+                                insertPromptVariable("user", "{{target}}")
+                              }
+                            >
+                              {"{{target}}"}
+                            </Button>
+                                <span className="text-xs text-muted-foreground">
+                                  Target language code
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-xs bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30"
+                              onClick={() =>
+                                insertPromptVariable("user", "{{text}}")
+                              }
+                            >
+                              {"{{text}}"}
+                            </Button>
+                                <span className="text-xs text-muted-foreground">
+                                  Input text
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {"Variables: {{source}}, {{target}}, {{text}}"}
+                          </span>
                         </div>
                       </div>
                     </section>
