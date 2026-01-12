@@ -94,15 +94,13 @@ const PromptTextarea = forwardRef<
 
   return (
     <div
-      className={`relative h-full w-full rounded-md border border-input bg-background shadow-sm focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${
-        className ?? ""
-      }`}
+      className={`relative h-full w-full rounded-md border border-input bg-background shadow-sm focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ${className ?? ""
+        }`}
     >
       <div
         ref={overlayRef}
-        className={`pointer-events-none absolute inset-0 overflow-auto px-3 py-2 text-sm leading-6 ${
-          isComposing ? "opacity-0" : "opacity-100"
-        }`}
+        className={`pointer-events-none absolute inset-0 overflow-auto px-3 py-2 text-sm leading-6 ${isComposing ? "opacity-0" : "opacity-100"
+          }`}
         aria-hidden="true"
       >
         <div className="whitespace-pre-wrap">
@@ -116,9 +114,8 @@ const PromptTextarea = forwardRef<
         onScroll={handleScroll}
         onCompositionStart={() => setIsComposing(true)}
         onCompositionEnd={() => setIsComposing(false)}
-        className={`relative h-full w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
-          isComposing ? "text-foreground" : "text-transparent caret-foreground"
-        }`}
+        className={`relative h-full w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${isComposing ? "text-foreground" : "text-transparent caret-foreground"
+          }`}
         {...props}
       />
     </div>
@@ -151,12 +148,19 @@ export const TranslatorView = () => {
   const lastErrorRef = useRef<string | undefined>(undefined);
   const systemPromptRef = useRef<HTMLTextAreaElement | null>(null);
   const userPromptRef = useRef<HTMLTextAreaElement | null>(null);
+  const settingsScrollRef = useRef<HTMLDivElement | null>(null);
+  const settingsAppearanceRef = useRef<HTMLElement | null>(null);
+  const settingsLlmRef = useRef<HTMLElement | null>(null);
+  const settingsPromptsRef = useRef<HTMLElement | null>(null);
   const savedSettingsRef = useRef<string | null>(null);
-  const [settingsDirty, setSettingsDirty] = useState(false);
+  const autoSaveTimerRef = useRef<number | undefined>(undefined);
   const [testStatus, setTestStatus] = useState<
     "idle" | "testing" | "ok" | "fail"
   >("idle");
   const [testMessage, setTestMessage] = useState("");
+  const [activeSettingsSection, setActiveSettingsSection] = useState<
+    "appearance" | "llm" | "prompts"
+  >("appearance");
   const detectedSourceLabel = useMemo(() => {
     if (!state.detectedSource) return undefined;
     const match = viewModel
@@ -166,7 +170,7 @@ export const TranslatorView = () => {
   }, [state.detectedSource, viewModel]);
 
   useEffect(() => {
-    viewModel.init().catch(() => {});
+    viewModel.init().catch(() => { });
   }, [viewModel]);
 
   useEffect(() => {
@@ -181,11 +185,23 @@ export const TranslatorView = () => {
     const serialized = serializeSettings(state.settings);
     if (savedSettingsRef.current === null) {
       savedSettingsRef.current = serialized;
-      setSettingsDirty(false);
       return;
     }
-    setSettingsDirty(serialized !== savedSettingsRef.current);
-  }, [state.settings, state.settingsReady]);
+    if (serialized === savedSettingsRef.current) return;
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current);
+    }
+    autoSaveTimerRef.current = window.setTimeout(async () => {
+      try {
+        await viewModel.persistSettings();
+        savedSettingsRef.current = serialized;
+      } catch (error) {
+        window.alert(
+          error instanceof Error ? error.message : "Failed to save settings."
+        );
+      }
+    }, 400);
+  }, [state.settings, state.settingsReady, viewModel]);
 
   useEffect(() => {
     if (!state.settingsReady) return;
@@ -193,21 +209,62 @@ export const TranslatorView = () => {
     setTestMessage("");
   }, [state.settings.baseUrl, state.settings.apiKey, state.settingsReady]);
 
+  useEffect(() => {
+    if (activeView !== "settings") return;
+    const container = settingsScrollRef.current;
+    const sections = [
+      settingsAppearanceRef.current,
+      settingsLlmRef.current,
+      settingsPromptsRef.current
+    ].filter(Boolean) as HTMLElement[];
+    if (!container || sections.length === 0) return;
+
+    let rafId = 0;
+    const updateActive = () => {
+      const containerRect = container.getBoundingClientRect();
+      const centerY = containerRect.top;
+      let closest: { key: "appearance" | "llm" | "prompts"; dist: number } | null =
+        null;
+
+      sections.forEach((section) => {
+        const rect = section.getBoundingClientRect();
+        const sectionCenter = rect.top + rect.height / 2;
+        const dist = Math.abs(sectionCenter - centerY);
+        const key = section.getAttribute("data-section") as
+          | "appearance"
+          | "llm"
+          | "prompts"
+          | null;
+        if (!key) return;
+        if (!closest || dist < closest.dist) {
+          closest = { key, dist };
+        }
+      });
+
+      if (closest) setActiveSettingsSection(closest.key);
+    };
+
+    const onScroll = () => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        updateActive();
+      });
+    };
+
+    updateActive();
+    container.addEventListener("scroll", onScroll);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
+      container.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [activeView]);
+
   const handleCopyOutput = () => {
     if (!state.output) return;
     void navigator.clipboard?.writeText(state.output);
-  };
-
-  const handleSaveSettings = async () => {
-    try {
-      await viewModel.persistSettings();
-      savedSettingsRef.current = serializeSettings(state.settings);
-      setSettingsDirty(false);
-    } catch (error) {
-      window.alert(
-        error instanceof Error ? error.message : "Failed to save settings."
-      );
-    }
   };
 
   const handleTestBaseUrl = async () => {
@@ -274,21 +331,19 @@ export const TranslatorView = () => {
 
   const requestViewChange = async (nextView: ViewKey) => {
     if (nextView === activeView) return;
-    if (activeView === "settings" && settingsDirty) {
-      const shouldSave = window.confirm(
-        "You have unsaved settings. Save before leaving?"
-      );
-      if (shouldSave) {
-        await handleSaveSettings();
-      }
-    }
     setActiveView(nextView);
   };
 
-  const renderScrollableMain = (content: React.ReactNode) => (
+  const renderScrollableMain = (
+    content: React.ReactNode,
+    scrollRef?: React.RefObject<HTMLDivElement>
+  ) => (
     <main className="relative flex min-h-0 flex-1 overflow-hidden">
       <div className="drag-region absolute left-0 right-0 top-0 h-12" />
-      <div className="absolute inset-x-0 bottom-0 top-12 overflow-auto">
+      <div
+        ref={scrollRef}
+        className="absolute inset-x-0 bottom-0 top-12 overflow-auto"
+      >
         <div className="flex min-h-full flex-col">{content}</div>
       </div>
     </main>
@@ -299,240 +354,237 @@ export const TranslatorView = () => {
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-h-0 w-full overflow-hidden">
           <aside
-            className={`flex h-full flex-col gap-2 border-r bg-card p-3 ${
-              navCollapsed ? "w-16" : "w-56"
-            }`}
+            className={`flex h-full flex-col gap-2 border-r bg-card p-3 ${navCollapsed ? "w-16" : "w-56"
+              }`}
           >
-          <div className="drag-region flex h-10 items-center">
-            <div className="no-drag flex w-full items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="group relative flex h-10 w-10 items-center justify-center">
-                  <img
-                    src={appIcon}
-                    alt="App icon"
-                    className={`h-6 w-6 ${navCollapsed ? "group-hover:opacity-0" : ""}`}
-                  />
-                  {navCollapsed ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute inset-0 h-10 w-10 rounded-md opacity-0 group-hover:opacity-100"
-                      onClick={() => setNavCollapsed(false)}
-                      aria-label="Expand sidebar"
-                    >
-                      <PanelLeftOpen className="h-4 w-4" strokeWidth={1.6} />
-                    </Button>
+            <div className="drag-region flex h-10 items-center">
+              <div className="no-drag flex w-full items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="group relative flex h-10 w-10 items-center justify-center">
+                    <img
+                      src={appIcon}
+                      alt="App icon"
+                      className={`h-6 w-6 ${navCollapsed ? "group-hover:opacity-0" : ""}`}
+                    />
+                    {navCollapsed ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute inset-0 h-10 w-10 rounded-md opacity-0 group-hover:opacity-100"
+                        onClick={() => setNavCollapsed(false)}
+                        aria-label="Expand sidebar"
+                      >
+                        <PanelLeftOpen className="h-4 w-4" strokeWidth={1.6} />
+                      </Button>
+                    ) : null}
+                  </div>
+                  {!navCollapsed ? (
+                    <span className="text-xs font-semibold tracking-wide">
+                      LLM Desk
+                    </span>
                   ) : null}
                 </div>
                 {!navCollapsed ? (
-                  <span className="text-xs font-semibold tracking-wide">
-                    LLM Desk
-                  </span>
-                ) : null}
-              </div>
-              {!navCollapsed ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-md"
-                  onClick={() => setNavCollapsed(true)}
-                  aria-label="Collapse sidebar"
-                >
-                  <PanelLeftClose className="h-4 w-4" strokeWidth={1.6} />
-                </Button>
-              ) : null}
-            </div>
-          </div>
-          <div className="h-px w-full bg-border" />
-          {tabs
-            .filter((tab) => tab.key !== "settings")
-            .map((tab) => (
-              <Button
-                key={tab.key}
-                type="button"
-                variant="ghost"
-                className={`h-10 w-full justify-start gap-3 px-3 ${
-                  activeView === tab.key ? "bg-accent text-foreground" : ""
-                }`}
-                onClick={() => void requestViewChange(tab.key)}
-              >
-                {tab.key === "translate" ? (
-                  <Languages className="h-4 w-4 shrink-0" strokeWidth={1.6} />
-                ) : null}
-                {tab.key === "history" ? (
-                  <History className="h-4 w-4 shrink-0" strokeWidth={1.6} />
-                ) : null}
-                {!navCollapsed ? (
-                  <span className="text-sm">{tab.label}</span>
-                ) : null}
-              </Button>
-            ))}
-          <div className="flex-1" />
-          {tabs
-            .filter((tab) => tab.key === "settings")
-            .map((tab) => (
-              <Button
-                key={tab.key}
-                type="button"
-                variant="ghost"
-                className={`h-10 w-full justify-start gap-3 px-3 ${
-                  activeView === tab.key ? "bg-accent text-foreground" : ""
-                }`}
-                onClick={() => void requestViewChange(tab.key)}
-              >
-                <Settings className="h-4 w-4 shrink-0" strokeWidth={1.6} />
-                {!navCollapsed ? (
-                  <span className="text-sm">{tab.label}</span>
-                ) : null}
-              </Button>
-            ))}
-          </aside>
-
-          {activeView === "translate" ? (
-          renderScrollableMain(
-            <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 px-6 pb-4">
-              <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-end">
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-medium text-muted-foreground">From</label>
-                  <Select
-                    value={state.source}
-                    onValueChange={(value) =>
-                      viewModel.setSource(value as typeof state.source)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {viewModel.getLanguages().map((lang) => (
-                        <SelectItem key={lang.code} value={lang.code}>
-                          {lang.code === "auto" && detectedSourceLabel
-                            ? `${lang.label} (${detectedSourceLabel})`
-                            : lang.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex justify-center">
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="text-muted-foreground"
-                    onClick={() => viewModel.swapLanguages()}
-                    aria-label="Swap languages"
+                    className="h-10 w-10 rounded-md"
+                    onClick={() => setNavCollapsed(true)}
+                    aria-label="Collapse sidebar"
                   >
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M7 7h10l-3-3m3 13H7l3 3"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                    <PanelLeftClose className="h-4 w-4" strokeWidth={1.6} />
                   </Button>
-                </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="h-px w-full bg-border" />
+            {tabs
+              .filter((tab) => tab.key !== "settings")
+              .map((tab) => (
+                <Button
+                  key={tab.key}
+                  type="button"
+                  variant="ghost"
+                  className={`h-10 w-full justify-start gap-3 px-3 ${activeView === tab.key ? "bg-accent text-foreground" : ""
+                    }`}
+                  onClick={() => void requestViewChange(tab.key)}
+                >
+                  {tab.key === "translate" ? (
+                    <Languages className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+                  ) : null}
+                  {tab.key === "history" ? (
+                    <History className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+                  ) : null}
+                  {!navCollapsed ? (
+                    <span className="text-sm">{tab.label}</span>
+                  ) : null}
+                </Button>
+              ))}
+            <div className="flex-1" />
+            {tabs
+              .filter((tab) => tab.key === "settings")
+              .map((tab) => (
+                <Button
+                  key={tab.key}
+                  type="button"
+                  variant="ghost"
+                  className={`h-10 w-full justify-start gap-3 px-3 ${activeView === tab.key ? "bg-accent text-foreground" : ""
+                    }`}
+                  onClick={() => void requestViewChange(tab.key)}
+                >
+                  <Settings className="h-4 w-4 shrink-0" strokeWidth={1.6} />
+                  {!navCollapsed ? (
+                    <span className="text-sm">{tab.label}</span>
+                  ) : null}
+                </Button>
+              ))}
+          </aside>
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-medium text-muted-foreground">To</label>
-                  <Select
-                    value={state.target}
-                    onValueChange={(value) =>
-                      viewModel.setTarget(value as typeof state.target)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Target" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {viewModel
-                        .getLanguages()
-                        .filter((lang) => lang.code !== "auto")
-                        .map((lang) => (
+          {activeView === "translate" ? (
+            renderScrollableMain(
+              <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 px-6 pb-4">
+                <section className="grid gap-3 rounded-xl border bg-card p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:items-end">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-medium text-muted-foreground">From</label>
+                    <Select
+                      value={state.source}
+                      onValueChange={(value) =>
+                        viewModel.setSource(value as typeof state.source)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Source" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {viewModel.getLanguages().map((lang) => (
                           <SelectItem key={lang.code} value={lang.code}>
-                            {lang.label}
+                            {lang.code === "auto" && detectedSourceLabel
+                              ? `${lang.label} (${detectedSourceLabel})`
+                              : lang.label}
                           </SelectItem>
                         ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </section>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-              <section className="grid flex-1 gap-4 lg:grid-cols-2">
-                <div className="flex flex-1 flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">Input</span>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="default"
-                        size="sm"
-                        className="h-7 px-3 text-xs"
-                        disabled={state.loading}
-                        onClick={() => viewModel.translate()}
-                      >
-                        {state.loading ? "Translating..." : "Translate"}
-                      </Button>
+                  <div className="flex justify-center">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground"
+                      onClick={() => viewModel.swapLanguages()}
+                      aria-label="Swap languages"
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M7 7h10l-3-3m3 13H7l3 3"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-medium text-muted-foreground">To</label>
+                    <Select
+                      value={state.target}
+                      onValueChange={(value) =>
+                        viewModel.setTarget(value as typeof state.target)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Target" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {viewModel
+                          .getLanguages()
+                          .filter((lang) => lang.code !== "auto")
+                          .map((lang) => (
+                            <SelectItem key={lang.code} value={lang.code}>
+                              {lang.label}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </section>
+
+                <section className="grid flex-1 gap-4 lg:grid-cols-2">
+                  <div className="flex flex-1 flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Input</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          className="h-7 px-3 text-xs"
+                          disabled={state.loading}
+                          onClick={() => viewModel.translate()}
+                        >
+                          {state.loading ? "Translating..." : "Translate"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-3 text-xs"
+                          onClick={() => viewModel.setInput("")}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                    <Textarea
+                      placeholder="Paste or type text to translate..."
+                      value={state.input}
+                      onChange={(event) => viewModel.setInput(event.target.value)}
+                      rows={10}
+                      className="min-h-[220px] flex-1"
+                    />
+                  </div>
+
+                  <div className="flex flex-1 flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Output</span>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-3 text-xs"
-                        onClick={() => viewModel.setInput("")}
+                        className="h-7 px-2 text-xs"
+                        onClick={handleCopyOutput}
                       >
-                        Clear
+                        Copy
                       </Button>
                     </div>
+                    <Textarea
+                      value={state.output}
+                      readOnly
+                      placeholder="Translation will appear here."
+                      rows={10}
+                      className="min-h-[220px] flex-1"
+                    />
                   </div>
-                  <Textarea
-                    placeholder="Paste or type text to translate..."
-                    value={state.input}
-                    onChange={(event) => viewModel.setInput(event.target.value)}
-                    rows={10}
-                    className="min-h-[220px] flex-1"
-                  />
-                </div>
-
-                <div className="flex flex-1 flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">Output</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={handleCopyOutput}
-                    >
-                      Copy
-                    </Button>
-                  </div>
-                  <Textarea
-                    value={state.output}
-                    readOnly
-                    placeholder="Translation will appear here."
-                    rows={10}
-                    className="min-h-[220px] flex-1"
-                  />
-                </div>
-              </section>
-            </div>
-          )
+                </section>
+              </div>
+            )
           ) : null}
 
           {activeView === "history" ? (
             renderScrollableMain(
               <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 pb-4">
-              <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
-                <span className="text-xs font-medium text-muted-foreground">History</span>
-                <p className="text-sm text-muted-foreground">No history yet.</p>
-              </section>
-            </div>
+                <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+                  <span className="text-xs font-medium text-muted-foreground">History</span>
+                  <p className="text-sm text-muted-foreground">No history yet.</p>
+                </section>
+              </div>
             )
           ) : null}
 
@@ -540,26 +592,63 @@ export const TranslatorView = () => {
             renderScrollableMain(
               <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 pb-4">
                 <section className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-                  <div className="flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-sm">
+                  <div className="sticky top-0 self-start rounded-xl border bg-card p-3 shadow-sm">
                     <span className="px-2 text-xs font-medium text-muted-foreground">
                       Settings
                     </span>
                     <button
                       type="button"
-                      className="h-9 w-full rounded-md bg-accent px-3 text-left text-sm text-foreground"
+                      className={`mt-2 h-9 w-full rounded-md px-3 text-left text-sm ${activeSettingsSection === "appearance"
+                          ? "bg-accent text-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        }`}
+                      onClick={() =>
+                        settingsAppearanceRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start"
+                        })
+                      }
                     >
                       Appearance
                     </button>
                     <button
                       type="button"
-                      className="h-9 w-full rounded-md px-3 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                      className={`mt-2 h-9 w-full rounded-md px-3 text-left text-sm ${activeSettingsSection === "llm"
+                          ? "bg-accent text-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        }`}
+                      onClick={() =>
+                        settingsLlmRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start"
+                        })
+                      }
                     >
                       LLM
+                    </button>
+                    <button
+                      type="button"
+                      className={`mt-2 h-9 w-full rounded-md px-3 text-left text-sm ${activeSettingsSection === "prompts"
+                          ? "bg-accent text-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        }`}
+                      onClick={() =>
+                        settingsPromptsRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start"
+                        })
+                      }
+                    >
+                      Prompts
                     </button>
                   </div>
                   <div className="flex min-w-0 flex-col gap-4">
                     <section className="flex flex-col gap-6 rounded-xl border bg-card p-4 shadow-sm">
-                      <div className="flex flex-col gap-3">
+                      <div
+                        ref={settingsAppearanceRef}
+                        data-section="appearance"
+                        className="flex flex-col gap-3"
+                      >
                         <span className="text-xs font-medium text-muted-foreground">
                           Appearance
                         </span>
@@ -587,7 +676,11 @@ export const TranslatorView = () => {
 
                       <div className="h-px w-full bg-border" />
 
-                      <div className="flex flex-col gap-3">
+                      <div
+                        ref={settingsLlmRef}
+                        data-section="llm"
+                        className="flex flex-col gap-3"
+                      >
                         <span className="text-xs font-medium text-muted-foreground">
                           LLM Settings
                         </span>
@@ -671,13 +764,12 @@ export const TranslatorView = () => {
                                 {testStatus === "testing" ? "Testing..." : "Test"}
                               </Button>
                               <span
-                                className={`text-xs ${
-                                  testStatus === "ok"
+                                className={`text-xs ${testStatus === "ok"
                                     ? "text-emerald-600 dark:text-emerald-300"
                                     : testStatus === "fail"
-                                    ? "text-rose-600 dark:text-rose-300"
-                                    : "text-muted-foreground"
-                                }`}
+                                      ? "text-rose-600 dark:text-rose-300"
+                                      : "text-muted-foreground"
+                                  }`}
                               >
                                 {testMessage || "Not tested"}
                               </span>
@@ -688,7 +780,11 @@ export const TranslatorView = () => {
 
                       <div className="h-px w-full bg-border" />
 
-                      <div className="flex flex-col gap-3">
+                      <div
+                        ref={settingsPromptsRef}
+                        data-section="prompts"
+                        className="flex flex-col gap-3"
+                      >
                         <span className="text-xs font-medium text-muted-foreground">
                           Prompt Templates
                         </span>
@@ -722,49 +818,49 @@ export const TranslatorView = () => {
                             </span>
                             <div className="grid gap-2 sm:grid-cols-3">
                               <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs bg-emerald-100 text-emerald-900 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:hover:bg-emerald-500/30"
-                              onClick={() =>
-                                insertPromptVariable("system", "{{source}}")
-                              }
-                            >
-                              {"{{source}}"}
-                            </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs bg-emerald-100 text-emerald-900 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:hover:bg-emerald-500/30"
+                                  onClick={() =>
+                                    insertPromptVariable("system", "{{source}}")
+                                  }
+                                >
+                                  {"{{source}}"}
+                                </Button>
                                 <span className="text-xs text-muted-foreground">
                                   Source language code
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs bg-sky-100 text-sky-900 hover:bg-sky-200 dark:bg-sky-500/20 dark:text-sky-200 dark:hover:bg-sky-500/30"
-                              onClick={() =>
-                                insertPromptVariable("system", "{{target}}")
-                              }
-                            >
-                              {"{{target}}"}
-                            </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs bg-sky-100 text-sky-900 hover:bg-sky-200 dark:bg-sky-500/20 dark:text-sky-200 dark:hover:bg-sky-500/30"
+                                  onClick={() =>
+                                    insertPromptVariable("system", "{{target}}")
+                                  }
+                                >
+                                  {"{{target}}"}
+                                </Button>
                                 <span className="text-xs text-muted-foreground">
                                   Target language code
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30"
-                              onClick={() =>
-                                insertPromptVariable("system", "{{text}}")
-                              }
-                            >
-                              {"{{text}}"}
-                            </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30"
+                                  onClick={() =>
+                                    insertPromptVariable("system", "{{text}}")
+                                  }
+                                >
+                                  {"{{text}}"}
+                                </Button>
                                 <span className="text-xs text-muted-foreground">
                                   Input text
                                 </span>
@@ -797,49 +893,49 @@ export const TranslatorView = () => {
                             </span>
                             <div className="grid gap-2 sm:grid-cols-3">
                               <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs bg-emerald-100 text-emerald-900 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:hover:bg-emerald-500/30"
-                              onClick={() =>
-                                insertPromptVariable("user", "{{source}}")
-                              }
-                            >
-                              {"{{source}}"}
-                            </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs bg-emerald-100 text-emerald-900 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200 dark:hover:bg-emerald-500/30"
+                                  onClick={() =>
+                                    insertPromptVariable("user", "{{source}}")
+                                  }
+                                >
+                                  {"{{source}}"}
+                                </Button>
                                 <span className="text-xs text-muted-foreground">
                                   Source language code
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs bg-sky-100 text-sky-900 hover:bg-sky-200 dark:bg-sky-500/20 dark:text-sky-200 dark:hover:bg-sky-500/30"
-                              onClick={() =>
-                                insertPromptVariable("user", "{{target}}")
-                              }
-                            >
-                              {"{{target}}"}
-                            </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs bg-sky-100 text-sky-900 hover:bg-sky-200 dark:bg-sky-500/20 dark:text-sky-200 dark:hover:bg-sky-500/30"
+                                  onClick={() =>
+                                    insertPromptVariable("user", "{{target}}")
+                                  }
+                                >
+                                  {"{{target}}"}
+                                </Button>
                                 <span className="text-xs text-muted-foreground">
                                   Target language code
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-7 px-2 text-xs bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30"
-                              onClick={() =>
-                                insertPromptVariable("user", "{{text}}")
-                              }
-                            >
-                              {"{{text}}"}
-                            </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:hover:bg-amber-500/30"
+                                  onClick={() =>
+                                    insertPromptVariable("user", "{{text}}")
+                                  }
+                                >
+                                  {"{{text}}"}
+                                </Button>
                                 <span className="text-xs text-muted-foreground">
                                   Input text
                                 </span>
@@ -852,19 +948,11 @@ export const TranslatorView = () => {
                         </div>
                       </div>
                     </section>
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        variant="default"
-                        onClick={() => void handleSaveSettings()}
-                        disabled={!settingsDirty}
-                      >
-                        Save Settings
-                      </Button>
-                    </div>
                   </div>
                 </section>
-            </div>
+              </div>
+              ,
+              settingsScrollRef
             )
           ) : null}
         </div>
