@@ -1,9 +1,12 @@
 import type { Language, LanguageCode } from "@domain/models/Language";
 import { SUPPORTED_LANGUAGES } from "@domain/models/Language";
 import type { LlmSettings } from "@domain/models/Settings";
+import type { HistoryItem, HistoryType } from "@domain/models/History";
 import type { TranslateText } from "@domain/usecases/TranslateText";
 import type { LoadSettings } from "@domain/usecases/LoadSettings";
 import type { SaveSettings } from "@domain/usecases/SaveSettings";
+import type { LoadHistory } from "@domain/usecases/LoadHistory";
+import type { AddHistoryItem } from "@domain/usecases/AddHistoryItem";
 
 export type TranslatorState = {
   source: LanguageCode;
@@ -18,6 +21,10 @@ export type TranslatorState = {
   settingsOpen: boolean;
   themeMode: "system" | "light" | "dark";
   theme: "light" | "dark";
+  history: HistoryItem[];
+  historyReady: boolean;
+  historyFilter: HistoryType | "all";
+  historyExpandedId?: string;
 };
 
 type Subscriber = () => void;
@@ -53,13 +60,19 @@ export class TranslatorViewModel {
     settingsReady: false,
     settingsOpen: false,
     themeMode: "system",
-    theme: "dark"
+    theme: "dark",
+    history: [],
+    historyReady: false,
+    historyFilter: "all",
+    historyExpandedId: undefined
   };
 
   constructor(
     private translateText: TranslateText,
     private loadSettings: LoadSettings,
-    private saveSettings: SaveSettings
+    private saveSettings: SaveSettings,
+    private loadHistory: LoadHistory,
+    private addHistoryItem: AddHistoryItem
   ) {}
 
   getState() {
@@ -77,11 +90,18 @@ export class TranslatorViewModel {
   }
 
   async init() {
-    const [settings, themeMode] = await Promise.all([
+    const [settings, themeMode, history] = await Promise.all([
       this.loadSettings.execute(),
-      this.loadThemeMode()
+      this.loadThemeMode(),
+      this.loadHistory.execute()
     ]);
-    this.setState({ settings, themeMode, settingsReady: true });
+    this.setState({
+      settings,
+      themeMode,
+      settingsReady: true,
+      history,
+      historyReady: true
+    });
     this.applyThemeMode(themeMode);
   }
 
@@ -127,6 +147,18 @@ export class TranslatorViewModel {
         detectedSource: result.detectedSource,
         loading: false
       });
+      await this.pushHistory({
+        id: this.createHistoryId(),
+        type: "translation",
+        createdAt: Date.now(),
+        payload: {
+          source: this.state.source,
+          target: this.state.target,
+          detectedSource: result.detectedSource,
+          input: this.state.input,
+          output: result.text
+        }
+      });
     } catch (error) {
       this.setState({
         loading: false,
@@ -151,6 +183,28 @@ export class TranslatorViewModel {
     this.setState({ themeMode });
     localStorage.setItem(THEME_MODE_KEY, themeMode);
     this.applyThemeMode(themeMode);
+  }
+
+  setHistoryFilter(filter: HistoryType | "all") {
+    this.setState({ historyFilter: filter, historyExpandedId: undefined });
+  }
+
+  toggleHistoryItem(id: string) {
+    this.setState({
+      historyExpandedId: this.state.historyExpandedId === id ? undefined : id
+    });
+  }
+
+  private async pushHistory(item: HistoryItem) {
+    const history = await this.addHistoryItem.execute(item);
+    this.setState({ history });
+  }
+
+  private createHistoryId() {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
   private applyTheme(theme: "light" | "dark") {

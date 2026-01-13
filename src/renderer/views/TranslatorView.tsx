@@ -3,6 +3,7 @@ import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { container } from "@app/di/container";
 import { TranslatorViewModelToken } from "@app/di/tokens";
 import type { LlmSettings } from "@domain/models/Settings";
+import type { HistoryItem, HistoryType } from "@domain/models/History";
 import type { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
 import appIcon from "@ui/assets/app-icon.svg";
 import { Button } from "@ui/components/ui/button";
@@ -77,6 +78,31 @@ const renderHighlightedTemplate = (value: string) => {
 
 const serializeSettings = (settings: LlmSettings) =>
   JSON.stringify(settings);
+
+const historyTypeOptions: Array<{ value: HistoryType | "all"; label: string }> =
+  [
+    { value: "all", label: "All types" },
+    { value: "translation", label: "Translation" }
+  ];
+
+const formatHistoryTime = (timestamp: number) =>
+  new Date(timestamp).toLocaleString();
+
+const truncatePreview = (value: string, max = 120) => {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 3)}...`;
+};
+
+const historyTypeLabel = (type: HistoryType) =>
+  type === "translation" ? "Translation" : type;
+
+const getHistoryPreview = (item: HistoryItem) => {
+  if (item.type === "translation") {
+    return truncatePreview(item.payload.input || item.payload.output);
+  }
+  return "";
+};
 
 const PromptTextarea = forwardRef<
   HTMLTextAreaElement,
@@ -168,6 +194,10 @@ export const TranslatorView = () => {
       .find((lang) => lang.code === state.detectedSource);
     return match?.label ?? state.detectedSource.toUpperCase();
   }, [state.detectedSource, viewModel]);
+  const filteredHistory = useMemo(() => {
+    if (state.historyFilter === "all") return state.history;
+    return state.history.filter((item) => item.type === state.historyFilter);
+  }, [state.history, state.historyFilter]);
 
   useEffect(() => {
     viewModel.init().catch(() => { });
@@ -580,9 +610,105 @@ export const TranslatorView = () => {
           {activeView === "history" ? (
             renderScrollableMain(
               <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 pb-4">
-                <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
-                  <span className="text-xs font-medium text-muted-foreground">History</span>
-                  <p className="text-sm text-muted-foreground">No history yet.</p>
+                <section className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">History</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Type</span>
+                      <Select
+                        value={state.historyFilter}
+                        onValueChange={(value) =>
+                          viewModel.setHistoryFilter(
+                            value as typeof state.historyFilter
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-8 w-[160px]">
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {historyTypeOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {!state.historyReady ? (
+                      <p className="text-sm text-muted-foreground">Loading history...</p>
+                    ) : filteredHistory.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No history yet.</p>
+                    ) : (
+                      filteredHistory.map((item) => {
+                        const preview = getHistoryPreview(item);
+                        const isExpanded = state.historyExpandedId === item.id;
+                        return (
+                          <div
+                            key={item.id}
+                            className="rounded-lg border border-border/70 bg-background/60"
+                          >
+                            <button
+                              type="button"
+                              className="flex w-full items-start justify-between gap-4 px-3 py-2 text-left"
+                              onClick={() => viewModel.toggleHistoryItem(item.id)}
+                            >
+                              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  {historyTypeLabel(item.type)}
+                                </span>
+                                <span className="text-sm text-foreground">
+                                  {preview || "No preview"}
+                                </span>
+                              </div>
+                              <span className="whitespace-nowrap text-xs text-muted-foreground">
+                                {formatHistoryTime(item.createdAt)}
+                              </span>
+                            </button>
+                            {isExpanded ? (
+                              <div className="border-t border-border/70 px-3 pb-3 pt-2">
+                                {item.type === "translation" ? (
+                                  <div className="flex flex-col gap-3 text-sm">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                      <span>
+                                        {item.payload.source}
+                                        {" -> "}
+                                        {item.payload.target}
+                                      </span>
+                                      {item.payload.detectedSource ? (
+                                        <span>
+                                          Detected: {item.payload.detectedSource}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <div className="grid gap-2">
+                                      <span className="text-xs text-muted-foreground">
+                                        Input
+                                      </span>
+                                      <div className="rounded-md bg-muted/40 p-3 text-sm text-foreground whitespace-pre-wrap">
+                                        {item.payload.input || "-"}
+                                      </div>
+                                    </div>
+                                    <div className="grid gap-2">
+                                      <span className="text-xs text-muted-foreground">
+                                        Output
+                                      </span>
+                                      <div className="rounded-md bg-muted/40 p-3 text-sm text-foreground whitespace-pre-wrap">
+                                        {item.payload.output || "-"}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </section>
               </div>
             )
