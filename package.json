@@ -1,7 +1,10 @@
 {
-  "name": "llm-translator",
+  "name": "refinery",
   "private": true,
   "version": "0.1.0",
+  "productName": "Refinery",
+  "description": "Desktop LLM translation app",
+  "author": "EgbertWong <651020224@qq.com>",
   "main": "dist/main/main.js",
   "scripts": {
     "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.main.json --watch\" \"tsc -p tsconfig.preload.json --watch\" \"wait-on tcp:5173 && electron .\"",

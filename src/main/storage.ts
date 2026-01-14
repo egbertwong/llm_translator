@@ -24,7 +24,7 @@ let db: ReturnType<typeof Database> | null = null;
 
 const ensureDb = () => {
   if (db) return db;
-  const dbPath = path.join(app.getPath("userData"), "llm-translator.sqlite");
+  const dbPath = path.join(app.getPath("userData"), "refinery.sqlite");
   db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
   db.exec(`

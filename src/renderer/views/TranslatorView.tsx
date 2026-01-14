@@ -6,6 +6,7 @@ import type { LlmSettings } from "@domain/models/Settings";
 import type { HistoryItem, HistoryType } from "@domain/models/History";
 import type { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
 import appIcon from "@ui/assets/app-icon.svg";
+import appInfo from "../../../package.json";
 import { Button } from "@ui/components/ui/button";
 import { Input } from "@ui/components/ui/input";
 import { Textarea } from "@ui/components/ui/textarea";
@@ -79,6 +80,13 @@ const renderHighlightedTemplate = (value: string) => {
 
 const serializeSettings = (settings: LlmSettings) =>
   JSON.stringify(settings);
+
+const aboutItems: Array<{ label: string; value: string }> = [
+  { label: "Product", value: appInfo.productName ?? "Refinery" },
+  { label: "Version", value: appInfo.version ?? "0.0.0" },
+  { label: "Author", value: appInfo.author ?? "Unknown" },
+  { label: "Description", value: appInfo.description ?? "" }
+];
 
 const historyTypeOptions: Array<{ value: HistoryType | "all"; label: string }> =
   [
@@ -179,6 +187,7 @@ export const TranslatorView = () => {
   const settingsAppearanceRef = useRef<HTMLElement | null>(null);
   const settingsLlmRef = useRef<HTMLElement | null>(null);
   const settingsPromptsRef = useRef<HTMLElement | null>(null);
+  const settingsAboutRef = useRef<HTMLElement | null>(null);
   const savedSettingsRef = useRef<string | null>(null);
   const autoSaveTimerRef = useRef<number | undefined>(undefined);
   const [testStatus, setTestStatus] = useState<
@@ -186,7 +195,7 @@ export const TranslatorView = () => {
   >("idle");
   const [testMessage, setTestMessage] = useState("");
   const [activeSettingsSection, setActiveSettingsSection] = useState<
-    "appearance" | "llm" | "prompts"
+    "appearance" | "llm" | "prompts" | "about"
   >("appearance");
   const detectedSourceLabel = useMemo(() => {
     if (!state.detectedSource) return undefined;
@@ -246,7 +255,8 @@ export const TranslatorView = () => {
     const sections = [
       settingsAppearanceRef.current,
       settingsLlmRef.current,
-      settingsPromptsRef.current
+      settingsPromptsRef.current,
+      settingsAboutRef.current
     ].filter(Boolean) as HTMLElement[];
     if (!container || sections.length === 0) return;
 
@@ -254,7 +264,7 @@ export const TranslatorView = () => {
     const updateActive = () => {
       const containerRect = container.getBoundingClientRect();
       const centerY = containerRect.top;
-      let closest: { key: "appearance" | "llm" | "prompts"; dist: number } | null =
+      let closest: { key: "appearance" | "llm" | "prompts" | "about"; dist: number } | null =
         null;
 
       sections.forEach((section) => {
@@ -265,6 +275,7 @@ export const TranslatorView = () => {
           | "appearance"
           | "llm"
           | "prompts"
+          | "about"
           | null;
         if (!key) return;
         if (!closest || dist < closest.dist) {
@@ -412,7 +423,7 @@ export const TranslatorView = () => {
                   </div>
                   {!navCollapsed ? (
                     <span className="text-xs font-semibold tracking-wide">
-                      LLM Desk
+                      Refinery
                     </span>
                   ) : null}
                 </div>
@@ -819,6 +830,21 @@ export const TranslatorView = () => {
                     >
                       Prompts
                     </button>
+                    <button
+                      type="button"
+                      className={`mt-2 h-9 w-full rounded-md px-3 text-left text-sm ${activeSettingsSection === "about"
+                          ? "bg-accent text-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        }`}
+                      onClick={() =>
+                        settingsAboutRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start"
+                        })
+                      }
+                    >
+                      About
+                    </button>
                   </div>
                   <div className="flex min-w-0 flex-col gap-4">
                     <section className="flex flex-col gap-6 rounded-xl border bg-card p-4 shadow-sm">
@@ -1123,6 +1149,44 @@ export const TranslatorView = () => {
                           <span className="text-xs text-muted-foreground">
                             {"Variables: {{source}}, {{target}}, {{text}}"}
                           </span>
+                        </div>
+                      </div>
+
+                      <div className="h-px w-full bg-border" />
+
+                      <div
+                        ref={settingsAboutRef}
+                        data-section="about"
+                        className="flex flex-col gap-3"
+                      >
+                        <span className="text-xs font-medium text-muted-foreground">
+                          About
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <img src={appIcon} alt="App icon" className="h-9 w-9" />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold">
+                              {appInfo.productName ?? "Refinery"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {appInfo.description ?? "Desktop LLM translation app."}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="grid gap-2 rounded-lg border bg-background/60 px-4 py-3 text-sm">
+                          {aboutItems.map((item) => (
+                            <div
+                              key={item.label}
+                              className="grid gap-1 sm:grid-cols-[120px_minmax(0,1fr)]"
+                            >
+                              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                {item.label}
+                              </span>
+                              <span className="text-sm text-foreground">
+                                {item.value}
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </section>

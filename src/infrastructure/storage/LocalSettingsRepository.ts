@@ -1,7 +1,7 @@
 import type { SettingsRepository } from "@domain/ports/SettingsRepository";
 import type { LlmSettings } from "@domain/models/Settings";
 
-const STORAGE_KEY = "llm-translator.settings";
+const STORAGE_KEY = "refinery.settings";
 
 const defaultSettings: LlmSettings = {
   baseUrl: "https://api.openai.com",

@@ -47,7 +47,7 @@ const defaultSettings: LlmSettings = {
   }
 };
 
-const THEME_MODE_KEY = "llm-translator.theme-mode";
+const THEME_MODE_KEY = "refinery.theme-mode";
 
 export class TranslatorViewModel {
   private listeners = new Set<Subscriber>();

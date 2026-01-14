@@ -1,7 +1,7 @@
 import type { HistoryRepository } from "@domain/ports/HistoryRepository";
 import type { HistoryItem } from "@domain/models/History";
 
-const STORAGE_KEY = "llm-translator.history";
+const STORAGE_KEY = "refinery.history";
 
 export class LocalHistoryRepository implements HistoryRepository {
   async load(): Promise<HistoryItem[]> {
