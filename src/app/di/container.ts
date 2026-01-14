@@ -9,6 +9,7 @@ import {
   SaveSettingsToken,
   LoadHistoryToken,
   AddHistoryItemToken,
+  RemoveHistoryItemsToken,
   TranslatorViewModelToken
 } from "./tokens";
 import { LLMTranslationService } from "@infra/llm/LLMTranslationService";
@@ -20,6 +21,7 @@ import { LoadSettings } from "@domain/usecases/LoadSettings";
 import { SaveSettings } from "@domain/usecases/SaveSettings";
 import { LoadHistory } from "@domain/usecases/LoadHistory";
 import { AddHistoryItem } from "@domain/usecases/AddHistoryItem";
+import { RemoveHistoryItems } from "@domain/usecases/RemoveHistoryItems";
 import { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
 
 export const container = new DiContainer();
@@ -36,10 +38,12 @@ container.register(LoadSettingsToken, () => new LoadSettings(container.resolve(S
 container.register(SaveSettingsToken, () => new SaveSettings(container.resolve(SettingsRepositoryToken)));
 container.register(LoadHistoryToken, () => new LoadHistory(container.resolve(HistoryRepositoryToken)));
 container.register(AddHistoryItemToken, () => new AddHistoryItem(container.resolve(HistoryRepositoryToken)));
+container.register(RemoveHistoryItemsToken, () => new RemoveHistoryItems(container.resolve(HistoryRepositoryToken)));
 container.register(TranslatorViewModelToken, () => new TranslatorViewModel(
   container.resolve(TranslateTextToken),
   container.resolve(LoadSettingsToken),
   container.resolve(SaveSettingsToken),
   container.resolve(LoadHistoryToken),
-  container.resolve(AddHistoryItemToken)
+  container.resolve(AddHistoryItemToken),
+  container.resolve(RemoveHistoryItemsToken)
 ));

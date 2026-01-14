@@ -7,6 +7,7 @@ import type { LoadSettings } from "@domain/usecases/LoadSettings";
 import type { SaveSettings } from "@domain/usecases/SaveSettings";
 import type { LoadHistory } from "@domain/usecases/LoadHistory";
 import type { AddHistoryItem } from "@domain/usecases/AddHistoryItem";
+import type { RemoveHistoryItems } from "@domain/usecases/RemoveHistoryItems";
 
 export type TranslatorState = {
   source: LanguageCode;
@@ -25,6 +26,8 @@ export type TranslatorState = {
   historyReady: boolean;
   historyFilter: HistoryType | "all";
   historyExpandedId?: string;
+  historySelectMode: boolean;
+  historySelectedIds: string[];
 };
 
 type Subscriber = () => void;
@@ -64,7 +67,9 @@ export class TranslatorViewModel {
     history: [],
     historyReady: false,
     historyFilter: "all",
-    historyExpandedId: undefined
+    historyExpandedId: undefined,
+    historySelectMode: false,
+    historySelectedIds: []
   };
 
   constructor(
@@ -72,7 +77,8 @@ export class TranslatorViewModel {
     private loadSettings: LoadSettings,
     private saveSettings: SaveSettings,
     private loadHistory: LoadHistory,
-    private addHistoryItem: AddHistoryItem
+    private addHistoryItem: AddHistoryItem,
+    private removeHistoryItems: RemoveHistoryItems
   ) {}
 
   getState() {
@@ -186,7 +192,11 @@ export class TranslatorViewModel {
   }
 
   setHistoryFilter(filter: HistoryType | "all") {
-    this.setState({ historyFilter: filter, historyExpandedId: undefined });
+    this.setState({
+      historyFilter: filter,
+      historyExpandedId: undefined,
+      historySelectedIds: []
+    });
   }
 
   toggleHistoryItem(id: string) {
@@ -195,9 +205,47 @@ export class TranslatorViewModel {
     });
   }
 
+  setHistorySelectMode(enabled: boolean) {
+    this.setState({
+      historySelectMode: enabled,
+      historySelectedIds: enabled ? this.state.historySelectedIds : []
+    });
+  }
+
+  toggleHistorySelection(id: string) {
+    const selected = new Set(this.state.historySelectedIds);
+    if (selected.has(id)) {
+      selected.delete(id);
+    } else {
+      selected.add(id);
+    }
+    this.setState({ historySelectedIds: Array.from(selected) });
+  }
+
+  async deleteHistoryItem(id: string) {
+    await this.removeHistory([id]);
+  }
+
+  async deleteSelectedHistory() {
+    await this.removeHistory(this.state.historySelectedIds);
+  }
+
   private async pushHistory(item: HistoryItem) {
     const history = await this.addHistoryItem.execute(item);
     this.setState({ history });
+  }
+
+  private async removeHistory(ids: string[]) {
+    if (ids.length === 0) return;
+    const history = await this.removeHistoryItems.execute(ids);
+    const historyExpandedId =
+      this.state.historyExpandedId && ids.includes(this.state.historyExpandedId)
+        ? undefined
+        : this.state.historyExpandedId;
+    const historySelectedIds = this.state.historySelectedIds.filter(
+      (id) => !ids.includes(id)
+    );
+    this.setState({ history, historyExpandedId, historySelectedIds });
   }
 
   private createHistoryId() {

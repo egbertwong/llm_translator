@@ -14,7 +14,8 @@ import {
   Languages,
   PanelLeftClose,
   PanelLeftOpen,
-  Settings
+  Settings,
+  Trash2
 } from "lucide-react";
 import {
   Select,
@@ -613,7 +614,30 @@ export const TranslatorView = () => {
                 <section className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-sm">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-xs font-medium text-muted-foreground">History</span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                        onClick={() =>
+                          viewModel.setHistorySelectMode(!state.historySelectMode)
+                        }
+                      >
+                        {state.historySelectMode ? "Cancel" : "Select"}
+                      </Button>
+                      {state.historySelectMode ? (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="h-8 px-3 text-xs"
+                          disabled={state.historySelectedIds.length === 0}
+                          onClick={() => void viewModel.deleteSelectedHistory()}
+                        >
+                          Delete selected
+                        </Button>
+                      ) : null}
                       <span className="text-xs text-muted-foreground">Type</span>
                       <Select
                         value={state.historyFilter}
@@ -646,28 +670,56 @@ export const TranslatorView = () => {
                       filteredHistory.map((item) => {
                         const preview = getHistoryPreview(item);
                         const isExpanded = state.historyExpandedId === item.id;
+                        const isSelected = state.historySelectedIds.includes(item.id);
                         return (
                           <div
                             key={item.id}
                             className="rounded-lg border border-border/70 bg-background/60"
                           >
-                            <button
-                              type="button"
-                              className="flex w-full items-start justify-between gap-4 px-3 py-2 text-left"
-                              onClick={() => viewModel.toggleHistoryItem(item.id)}
-                            >
-                              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                <span className="text-xs font-medium text-muted-foreground">
-                                  {historyTypeLabel(item.type)}
-                                </span>
-                                <span className="text-sm text-foreground">
-                                  {preview || "No preview"}
-                                </span>
+                            <div className="flex w-full items-start justify-between gap-4 px-3 py-2">
+                              <div className="flex min-w-0 flex-1 items-start gap-3">
+                                {state.historySelectMode ? (
+                                  <input
+                                    type="checkbox"
+                                    className="mt-1 h-4 w-4"
+                                    checked={isSelected}
+                                    onChange={() =>
+                                      viewModel.toggleHistorySelection(item.id)
+                                    }
+                                    aria-label="Select history item"
+                                  />
+                                ) : null}
+                                <button
+                                  type="button"
+                                  className="flex min-w-0 flex-1 flex-col gap-1 text-left"
+                                  onClick={() => viewModel.toggleHistoryItem(item.id)}
+                                >
+                                  <span className="text-xs font-medium text-muted-foreground">
+                                    {historyTypeLabel(item.type)}
+                                  </span>
+                                  <span className="text-sm text-foreground">
+                                    {preview || "No preview"}
+                                  </span>
+                                </button>
                               </div>
-                              <span className="whitespace-nowrap text-xs text-muted-foreground">
-                                {formatHistoryTime(item.createdAt)}
-                              </span>
-                            </button>
+                              <div className="flex items-center gap-2">
+                                <span className="whitespace-nowrap text-xs text-muted-foreground">
+                                  {formatHistoryTime(item.createdAt)}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() =>
+                                    void viewModel.deleteHistoryItem(item.id)
+                                  }
+                                  aria-label="Delete history item"
+                                >
+                                  <Trash2 className="h-4 w-4" strokeWidth={1.6} />
+                                </Button>
+                              </div>
+                            </div>
                             {isExpanded ? (
                               <div className="border-t border-border/70 px-3 pb-3 pt-2">
                                 {item.type === "translation" ? (

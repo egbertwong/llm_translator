@@ -8,6 +8,7 @@ import type { LoadSettings } from "@domain/usecases/LoadSettings";
 import type { SaveSettings } from "@domain/usecases/SaveSettings";
 import type { LoadHistory } from "@domain/usecases/LoadHistory";
 import type { AddHistoryItem } from "@domain/usecases/AddHistoryItem";
+import type { RemoveHistoryItems } from "@domain/usecases/RemoveHistoryItems";
 import type { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
 
 export const TranslationServiceToken = Symbol("TranslationService") as Token<TranslationService>;
@@ -19,4 +20,5 @@ export const LoadSettingsToken = Symbol("LoadSettings") as Token<LoadSettings>;
 export const SaveSettingsToken = Symbol("SaveSettings") as Token<SaveSettings>;
 export const LoadHistoryToken = Symbol("LoadHistory") as Token<LoadHistory>;
 export const AddHistoryItemToken = Symbol("AddHistoryItem") as Token<AddHistoryItem>;
+export const RemoveHistoryItemsToken = Symbol("RemoveHistoryItems") as Token<RemoveHistoryItems>;
 export const TranslatorViewModelToken = Symbol("TranslatorViewModel") as Token<TranslatorViewModel>;
