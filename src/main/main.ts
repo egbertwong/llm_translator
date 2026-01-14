@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, Menu } from "electron";
 import path from "node:path";
+import { loadHistory, loadSettings, saveHistory, saveSettings } from "./storage";
 
 const createWindow = () => {
   const iconPath = app.isPackaged
@@ -38,6 +39,8 @@ const createWindow = () => {
   win.on("maximize", () => win.webContents.send("window:maximized", true));
   win.on("unmaximize", () => win.webContents.send("window:maximized", false));
 };
+
+Menu.setApplicationMenu(null);
 
 app.whenReady().then(() => {
   if (process.platform === "darwin") {
@@ -94,4 +97,13 @@ ipcMain.on("window:titlebar", (event, options) => {
   } catch {
     // Ignore when unsupported.
   }
+});
+
+ipcMain.handle("storage:load-settings", () => loadSettings());
+ipcMain.handle("storage:save-settings", (_event, settings) => {
+  saveSettings(settings);
+});
+ipcMain.handle("storage:load-history", () => loadHistory());
+ipcMain.handle("storage:save-history", (_event, items) => {
+  saveHistory(Array.isArray(items) ? items : []);
 });

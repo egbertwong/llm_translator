@@ -14,8 +14,8 @@ import {
 } from "./tokens";
 import { LLMTranslationService } from "@infra/llm/LLMTranslationService";
 import { BasicLanguageDetector } from "@infra/lang/BasicLanguageDetector";
-import { LocalSettingsRepository } from "@infra/storage/LocalSettingsRepository";
-import { LocalHistoryRepository } from "@infra/storage/LocalHistoryRepository";
+import { SqliteSettingsRepository } from "@infra/storage/SqliteSettingsRepository";
+import { SqliteHistoryRepository } from "@infra/storage/SqliteHistoryRepository";
 import { TranslateText } from "@domain/usecases/TranslateText";
 import { LoadSettings } from "@domain/usecases/LoadSettings";
 import { SaveSettings } from "@domain/usecases/SaveSettings";
@@ -26,8 +26,8 @@ import { TranslatorViewModel } from "@ui/viewmodels/TranslatorViewModel";
 
 export const container = new DiContainer();
 
-container.register(SettingsRepositoryToken, () => new LocalSettingsRepository());
-container.register(HistoryRepositoryToken, () => new LocalHistoryRepository());
+container.register(SettingsRepositoryToken, () => new SqliteSettingsRepository());
+container.register(HistoryRepositoryToken, () => new SqliteHistoryRepository());
 container.register(TranslationServiceToken, () => new LLMTranslationService(container.resolve(SettingsRepositoryToken)));
 container.register(LanguageDetectorToken, () => new BasicLanguageDetector());
 container.register(TranslateTextToken, () => new TranslateText(
