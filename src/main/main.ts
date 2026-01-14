@@ -47,7 +47,11 @@ app.whenReady().then(() => {
     const iconPath = app.isPackaged
       ? path.join(process.resourcesPath, "icons", "icon.png")
       : path.join(__dirname, "../../resources/icons/icon.png");
-    app.dock.setIcon(iconPath).catch(() => {});
+    try {
+      app.dock.setIcon(iconPath);
+    } catch {
+      // Ignore when unsupported.
+    }
   }
   createWindow();
 

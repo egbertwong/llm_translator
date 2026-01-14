@@ -20,7 +20,7 @@ type SettingsRow = {
   data: string;
 };
 
-let db: Database.Database | null = null;
+let db: ReturnType<typeof Database> | null = null;
 
 const ensureDb = () => {
   if (db) return db;
